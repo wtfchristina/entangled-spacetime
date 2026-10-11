@@ -15,6 +15,7 @@ export default function SpacetimeGrid({
   erBridgeActive,
   geodesicsActive,
   impactParamY,
+  syndromeErrors,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
@@ -25,7 +26,7 @@ export default function SpacetimeGrid({
   const photonMarkersRef = useRef([]);
 
   // 1. Build Base Lattice Topology
-  const { basePositions, indices, lineColorsTemplate } = useMemo(() => {
+  const { basePositions, indices, lineColorsTemplate, nodeColorsTemplate } = useMemo(() => {
     const pos = [];
     const ind = [];
     const gridSize = 5;
@@ -53,23 +54,29 @@ export default function SpacetimeGrid({
     }
 
     const lineColors = new Float32Array(pos.length);
+    const nodeColors = new Float32Array(pos.length);
     for (let i = 0; i < lineColors.length; i += 3) {
       lineColors[i] = 0.2;
       lineColors[i + 1] = 0.6;
       lineColors[i + 2] = 1.0;
+
+      nodeColors[i] = 0.58;     // R (Default Cyan/Blue)
+      nodeColors[i + 1] = 0.77; // G
+      nodeColors[i + 2] = 0.99; // B
     }
 
     return {
       basePositions: new Float32Array(pos),
       indices: new Uint16Array(ind),
-      lineColorsTemplate: lineColors
+      lineColorsTemplate: lineColors,
+      nodeColorsTemplate: nodeColors
     };
   }, []);
 
   const dynamicPositions = useMemo(() => new Float32Array(basePositions), [basePositions]);
-  const dynamicColors = useMemo(() => new Float32Array(lineColorsTemplate), [lineColorsTemplate]);
+  const dynamicLineColors = useMemo(() => new Float32Array(lineColorsTemplate), [lineColorsTemplate]);
+  const dynamicNodeColors = useMemo(() => new Float32Array(nodeColorsTemplate), [nodeColorsTemplate]);
 
-  // Compute curved null geodesic paths
   const geodesicPaths = useMemo(() => {
     if (!geodesicsActive) return [];
     return traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive);
@@ -79,6 +86,8 @@ export default function SpacetimeGrid({
   const hotColor = useMemo(() => new THREE.Color('#f43f5e'), []);
   const horizonColor = useMemo(() => new THREE.Color('#a855f7'), []);
   const wormholeColor = useMemo(() => new THREE.Color('#06b6d4'), []);
+  const errorColor = useMemo(() => new THREE.Color('#f59e0b'), []); // High-alert amber for Pauli faults
+  const normalNodeColor = useMemo(() => new THREE.Color('#93c5fd'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
   // 2. 60 FPS Render Loop
@@ -88,20 +97,17 @@ export default function SpacetimeGrid({
 
     const time = state.clock.elapsedTime;
 
-    // Pulse event horizon if active
     if (horizonRef.current && blackHoleActive) {
       const pulse = 1 + Math.sin(time * 4) * 0.04;
       horizonRef.current.scale.set(pulse, pulse, pulse);
     }
 
-    // Dynamic Wormhole Geometry Update
     if (wormholeRef.current && erBridgeActive) {
       const wh = generateWormholeGeometry(entanglement, time);
       wormholeRef.current.geometry.attributes.position.array.set(wh.vertices);
       wormholeRef.current.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Animate photon particles along geodesics
     if (geodesicsActive && geodesicPaths.length > 0) {
       const speed = 0.8;
       const progress = (time * speed) % 1;
@@ -119,11 +125,12 @@ export default function SpacetimeGrid({
       });
     }
 
-    // Update Lattice Vertices & Color Stress
     const currentPosArray = pointsRef.current.geometry.attributes.position.array;
     const lineColorsArray = linesRef.current.geometry.attributes.color.array;
+    const nodeColorsArray = pointsRef.current.geometry.attributes.color.array;
 
     for (let i = 0; i < basePositions.length; i += 3) {
+      const nodeIndex = i / 3;
       const bx = basePositions[i];
       const by = basePositions[i + 1];
       const bz = basePositions[i + 2];
@@ -139,13 +146,29 @@ export default function SpacetimeGrid({
         stateMode,
         perturbation,
         blackHoleActive,
-        erBridgeActive
+        erBridgeActive,
+        nodeIndex,
+        syndromeErrors
       );
 
       currentPosArray[i] = node.x;
       currentPosArray[i + 1] = node.y;
       currentPosArray[i + 2] = node.z;
 
+      // QEC Syndrome Node Coloring: Error qubits flash amber/gold
+      if (node.hasError) {
+        const flash = 0.5 + Math.sin(time * 12 + nodeIndex) * 0.5;
+        tempColor.copy(errorColor).lerp(hotColor, flash);
+        nodeColorsArray[i] = tempColor.r;
+        nodeColorsArray[i + 1] = tempColor.g;
+        nodeColorsArray[i + 2] = tempColor.b;
+      } else {
+        nodeColorsArray[i] = normalNodeColor.r;
+        nodeColorsArray[i + 1] = normalNodeColor.g;
+        nodeColorsArray[i + 2] = normalNodeColor.b;
+      }
+
+      // Bond Stress Heatmap
       const strainFactor = Math.min(1.0, node.strain * 2.2 + entanglement * 0.35);
 
       if (erBridgeActive) {
@@ -162,11 +185,11 @@ export default function SpacetimeGrid({
     }
 
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
+    pointsRef.current.geometry.attributes.color.needsUpdate = true;
     linesRef.current.geometry.attributes.position.needsUpdate = true;
     linesRef.current.geometry.attributes.color.needsUpdate = true;
   });
 
-  // Base wormhole template for initial geometry buffer
   const initialWormhole = useMemo(() => generateWormholeGeometry(0.5, 0), []);
 
   return (
@@ -240,7 +263,7 @@ export default function SpacetimeGrid({
           </group>
         ))}
 
-      {/* Qubit Nodes */}
+      {/* Qubit Nodes with Vertex-Colored Syndrome Faults */}
       <points ref={pointsRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -249,10 +272,16 @@ export default function SpacetimeGrid({
             array={dynamicPositions}
             itemSize={3}
           />
+          <bufferAttribute
+            attach="attributes-color"
+            count={dynamicNodeColors.length / 3}
+            array={dynamicNodeColors}
+            itemSize={3}
+          />
         </bufferGeometry>
         <pointsMaterial
-          size={0.16}
-          color="#93c5fd"
+          size={0.17}
+          vertexColors={true}
           transparent
           opacity={0.95}
           sizeAttenuation={true}
@@ -270,8 +299,8 @@ export default function SpacetimeGrid({
           />
           <bufferAttribute
             attach="attributes-color"
-            count={dynamicColors.length / 3}
-            array={dynamicColors}
+            count={dynamicLineColors.length / 3}
+            array={dynamicLineColors}
             itemSize={3}
           />
           <bufferAttribute

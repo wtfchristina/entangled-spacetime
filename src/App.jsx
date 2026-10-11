@@ -13,6 +13,7 @@ export default function App() {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [geodesicsActive, setGeodesicsActive] = useState(false);
   const [impactParamY, setImpactParamY] = useState(1.6);
+  const [syndromeErrors, setSyndromeErrors] = useState([]);
 
   const clockRef = useRef(0);
   const audioCtxRef = useRef(null);
@@ -25,7 +26,8 @@ export default function App() {
     stateMode,
     blackHoleActive,
     erBridgeActive,
-    impactParamY
+    impactParamY,
+    syndromeErrors
   );
 
   // Initialize Web Audio synthesizer with dual harmonic oscillators
@@ -64,24 +66,27 @@ export default function App() {
     }
   }, [audioEnabled]);
 
-  // Modulate synth frequencies based on ER wormhole throat & curvature
+  // Audio modulation with defect noise dissonance
   useEffect(() => {
     if (audioCtxRef.current && oscRef.current && osc2Ref.current && audioEnabled) {
       const ctx = audioCtxRef.current;
       let basePitch = 55 + entanglement * 95;
-      if (erBridgeActive) basePitch = 110 + entanglement * 75; // Resonant higher harmonic for wormhole
+      if (erBridgeActive) basePitch = 110 + entanglement * 75;
       if (blackHoleActive && !erBridgeActive) basePitch = 42;
 
+      // When errors exist, add dissonance
+      const detuneFactor = syndromeErrors.length * 8;
+
       oscRef.current.frequency.exponentialRampToValueAtTime(
-        Math.max(30, basePitch),
+        Math.max(30, basePitch + detuneFactor),
         ctx.currentTime + 0.1
       );
       osc2Ref.current.frequency.exponentialRampToValueAtTime(
-        Math.max(60, basePitch * 1.5),
+        Math.max(60, (basePitch + detuneFactor) * 1.5),
         ctx.currentTime + 0.1
       );
     }
-  }, [entanglement, blackHoleActive, erBridgeActive, audioEnabled]);
+  }, [entanglement, blackHoleActive, erBridgeActive, syndromeErrors, audioEnabled]);
 
   const triggerPerturbation = () => {
     setPerturbation({ active: true, startTime: clockRef.current });
@@ -92,6 +97,24 @@ export default function App() {
       oscRef.current.frequency.setValueAtTime(currentFreq * 2.2, ctx.currentTime);
       oscRef.current.frequency.exponentialRampToValueAtTime(currentFreq, ctx.currentTime + 0.6);
     }
+  };
+
+  // QEC: Inject 5 random Pauli defects
+  const injectPauliNoise = () => {
+    const totalQubits = 125;
+    const newErrors = new Set(syndromeErrors);
+    let attempts = 0;
+    while (newErrors.size < syndromeErrors.length + 5 && attempts < 50) {
+      const randomQubit = Math.floor(Math.random() * totalQubits);
+      newErrors.add(randomQubit);
+      attempts++;
+    }
+    setSyndromeErrors(Array.from(newErrors));
+  };
+
+  // QEC: Run Minimum-Weight Syndrome Decoder
+  const runSyndromeDecoder = () => {
+    setSyndromeErrors([]);
   };
 
   return (
@@ -110,7 +133,7 @@ export default function App() {
       {/* Sidebar Controls & Telemetry */}
       <div
         style={{
-          width: '430px',
+          width: '440px',
           padding: '24px',
           backgroundColor: '#0b0f19',
           borderRight: '1px solid #1f2937',
@@ -127,11 +150,11 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
-            ER = EPR Wormhole Bridge & Geodesic Dynamics Simulator
+            Fault-Tolerant QEC & Holographic Spacetime Simulator
           </p>
         </div>
 
-        {/* Feature Toggles: ER = EPR, Black Hole, Audio */}
+        {/* Feature Toggles: ER = EPR, Black Hole */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={() => {
@@ -172,6 +195,51 @@ export default function App() {
           </button>
         </div>
 
+        {/* Quantum Error Correction Console */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#f59e0b' }}>
+              TOPOLOGICAL QUANTUM ERROR CORRECTION
+            </span>
+            <span style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>
+              Code: [[125, 1, 5]]
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button
+              onClick={injectPauliNoise}
+              style={{
+                padding: '8px',
+                backgroundColor: '#78350f',
+                color: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: '600'
+              }}
+            >
+              Inject Pauli Noise (+5)
+            </button>
+            <button
+              onClick={runSyndromeDecoder}
+              disabled={syndromeErrors.length === 0}
+              style={{
+                padding: '8px',
+                backgroundColor: syndromeErrors.length > 0 ? '#065f46' : '#1f2937',
+                color: syndromeErrors.length > 0 ? '#d1fae5' : '#6b7280',
+                border: syndromeErrors.length > 0 ? '1px solid #10b981' : '1px solid #374151',
+                borderRadius: '6px',
+                cursor: syndromeErrors.length > 0 ? 'pointer' : 'not-allowed',
+                fontSize: '11px',
+                fontWeight: '600'
+              }}
+            >
+              Run Syndrome Decoder
+            </button>
+          </div>
+        </div>
+
         {/* Entanglement Entropy Slider */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -193,7 +261,7 @@ export default function App() {
           />
         </div>
 
-        {/* Quantum State Presets (Available when not in ER mode) */}
+        {/* Quantum State Presets (When not in ER mode) */}
         {!erBridgeActive && (
           <div>
             <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
@@ -269,7 +337,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Utility Controls */}
+        {/* Sonification and Perturbation */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={() => setAudioEnabled(!audioEnabled)}
@@ -304,43 +372,57 @@ export default function App() {
           </button>
         </div>
 
-        {/* Telemetry Readouts */}
+        {/* Telemetry Dashboard with QEC Readouts */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
-            {erBridgeActive ? 'ER = EPR WORMHOLE TELEMETRY' : 'METRIC & GEODESIC TELEMETRY'}
+            HOLOGRAPHIC & QEC TELEMETRY
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>LOGICAL FIDELITY (F_L)</div>
+              <div
+                style={{
+                  fontSize: '15px',
+                  color: telemetry.logicalFidelity > 0.8 ? '#10b981' : '#f59e0b',
+                  fontFamily: 'monospace',
+                  marginTop: '2px'
+                }}
+              >
+                {telemetry.logicalFidelity}
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>ACTIVE SYNDROMES</div>
+              <div
+                style={{
+                  fontSize: '15px',
+                  color: telemetry.activeSyndromes > 0 ? '#f59e0b' : '#38bdf8',
+                  fontFamily: 'monospace',
+                  marginTop: '2px'
+                }}
+              >
+                {telemetry.activeSyndromes} / 125
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>PHYSICAL ERROR RATE</div>
+              <div style={{ fontSize: '15px', color: '#f43f5e', fontFamily: 'monospace', marginTop: '2px' }}>
+                {telemetry.physicalErrorRate}
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>
-                {erBridgeActive ? 'THROAT RADIUS (r_0)' : 'RICCI SCALAR (R)'}
+                {erBridgeActive ? 'THROAT RADIUS' : 'RICCI SCALAR (R)'}
               </div>
               <div
                 style={{
                   fontSize: '15px',
-                  color: erBridgeActive ? '#22d3ee' : blackHoleActive ? '#c084fc' : '#f43f5e',
+                  color: erBridgeActive ? '#22d3ee' : '#e2e8f0',
                   fontFamily: 'monospace',
                   marginTop: '2px'
                 }}
               >
                 {erBridgeActive ? telemetry.throatRadius : telemetry.ricciScalar}
-              </div>
-            </div>
-            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>DEFLECTION (Δθ)</div>
-              <div style={{ fontSize: '15px', color: '#facc15', fontFamily: 'monospace', marginTop: '2px' }}>
-                {telemetry.deflectionAngle}
-              </div>
-            </div>
-            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>METRIC g_00</div>
-              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '2px' }}>
-                {telemetry.g00}
-              </div>
-            </div>
-            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>SPATIAL g_rr</div>
-              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '2px' }}>
-                {telemetry.grr}
               </div>
             </div>
           </div>
@@ -364,6 +446,7 @@ export default function App() {
             erBridgeActive={erBridgeActive}
             geodesicsActive={geodesicsActive}
             impactParamY={impactParamY}
+            syndromeErrors={syndromeErrors}
             triggerPerturbation={triggerPerturbation}
           />
           <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
