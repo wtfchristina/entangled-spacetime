@@ -1,7 +1,6 @@
 /**
  * tensorCalculations.js
- * Advanced Holographic Bulk Reconstruction, Gao-Jafferis-Wall Traversable Wormhole Protocol,
- * Ryu-Takayanagi Minimal Surface, and Fault-Tolerant QEC Engine
+ * Holographic Spacetime, Traversable Wormhole Protocol, and QEC Engine
  */
 
 export function calculateNodeState(
@@ -75,13 +74,12 @@ export function calculateNodeState(
     finalY = baseY * 0.75;
     finalZ = baseZ * 0.75;
 
-    // Entanglement pull: draw nodes toward the throat
     const pullTowardsThroat = entanglement * 1.2 * Math.exp(-Math.abs(baseX));
     finalX -= sideSign * pullTowardsThroat;
 
     // Shockwave pulse dilation during teleportation
     if (teleportPacket && teleportPacket.active) {
-      const shockEffect = Math.sin(time * 10) * 0.15 * Math.exp(-Math.abs(baseX));
+      const shockEffect = Math.sin(time * 12) * 0.18 * Math.exp(-Math.abs(baseX));
       finalY += shockEffect;
     }
   }
@@ -253,15 +251,18 @@ export function traceGeodesicRays(impactParamY, entanglement, blackHoleActive, e
 }
 
 /**
- * Computes Gao-Jafferis-Wall traversable teleportation position through the wormhole
+ * Gao-Jafferis-Wall traversable teleportation trajectory:
+ * Smoothly travels from Left Mouth A (-4.8) -> Throat (0.0) -> Right Mouth B (+4.8)
  */
 export function computeTeleportationPosition(progress, entanglement) {
-  // Path travels from mouth A (-4.5, 0, 0) through throat (0, 0, 0) to mouth B (+4.5, 0, 0)
-  const x = -4.5 + progress * 9.0;
-  // Gaussian throat compression
-  const throatFactor = Math.exp(-Math.pow(x / 2.0, 2));
-  const y = Math.sin(progress * Math.PI) * 0.4 * (1 - throatFactor);
-  const z = Math.cos(progress * Math.PI * 4) * 0.25 * throatFactor;
+  // Clamped progress between 0 (Mouth A) and 1 (Mouth B)
+  const p = Math.min(1.0, Math.max(0.0, progress));
+  const x = -4.8 + p * 9.6;
+
+  // Throat compression
+  const throatFactor = Math.exp(-Math.pow(x / 1.8, 2));
+  const y = Math.sin(p * Math.PI) * 0.5 * (1 - throatFactor);
+  const z = Math.cos(p * Math.PI * 4) * 0.25 * throatFactor;
 
   return { x, y, z };
 }
@@ -281,7 +282,7 @@ export function computeMetricTelemetry(
   let ricciBase = entanglement * 4.2;
 
   if (erBridgeActive) {
-    g00Val = teleportPacket?.active ? -0.78 : -0.42; // Gao-Jafferis-Wall negative energy shift
+    g00Val = teleportPacket?.active ? -0.85 : -0.42;
     grrVal = 1.0;
     ricciBase = entanglement * 8.6;
   } else if (blackHoleActive) {
@@ -305,8 +306,6 @@ export function computeMetricTelemetry(
   const logicalFidelity = Math.max(0.01, Math.exp(-numErrors * 0.12)).toFixed(3);
 
   const rt = calculateRyuTakayanagiSurface(boundaryAngle, entanglement);
-
-  // HKLL reconstruction error proxy based on boundary subregion coverage
   const hkllError = Math.max(0.002, Math.exp(-boundaryAngle * 1.8)).toFixed(4);
 
   return {

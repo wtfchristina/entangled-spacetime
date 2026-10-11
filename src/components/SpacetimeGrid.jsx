@@ -21,6 +21,7 @@ export default function SpacetimeGrid({
   rtActive,
   boundaryAngle,
   teleportPacket,
+  clockRef,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
@@ -30,6 +31,7 @@ export default function SpacetimeGrid({
   const wormholeRef = useRef();
   const rtSurfaceRef = useRef();
   const teleportMarkerRef = useRef();
+  const arrivalHaloRef = useRef();
   const photonMarkersRef = useRef([]);
 
   // 1. Build Base Lattice Topology
@@ -105,6 +107,11 @@ export default function SpacetimeGrid({
 
   // 2. 60 FPS Render Loop
   useFrame((state, delta) => {
+    // Keep parent clock ref precisely in sync with Three.js engine time
+    if (clockRef) {
+      clockRef.current = state.clock.elapsedTime;
+    }
+
     groupRef.current.rotation.y += delta * 0.10;
     groupRef.current.rotation.x += delta * 0.03;
 
@@ -115,24 +122,38 @@ export default function SpacetimeGrid({
       horizonRef.current.scale.set(pulse, pulse, pulse);
     }
 
-    // Dynamic Wormhole Geometry & Shockwave Color Flash
+    // Dynamic Wormhole Geometry
     if (wormholeRef.current && erBridgeActive) {
       const wh = generateWormholeGeometry(entanglement, time);
       wormholeRef.current.geometry.attributes.position.array.set(wh.vertices);
       wormholeRef.current.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Gao-Jafferis-Wall Quantum State Teleportation packet traversal
+    // Gao-Jafferis-Wall Quantum State Teleportation & Arrival Docking
     if (teleportMarkerRef.current && teleportPacket && teleportPacket.active) {
-      const duration = 2.4; // 2.4 seconds traversal time
+      const duration = 2.4; // 2.4s travel time through throat
       const elapsed = time - teleportPacket.startTime;
       const progress = Math.min(1.0, elapsed / duration);
 
       const pos = computeTeleportationPosition(progress, entanglement);
       teleportMarkerRef.current.position.set(pos.x, pos.y, pos.z);
 
-      const pulseScale = 1.0 + Math.sin(time * 24) * 0.3;
+      // Pulse larger when arrived at Mouth B
+      const isArrived = progress >= 0.99;
+      const pulseScale = isArrived ? 1.35 + Math.sin(time * 16) * 0.25 : 1.0 + Math.sin(time * 24) * 0.2;
       teleportMarkerRef.current.scale.set(pulseScale, pulseScale, pulseScale);
+
+      // Arrival halo expansion at Mouth B (+4.8)
+      if (arrivalHaloRef.current) {
+        if (isArrived) {
+          arrivalHaloRef.current.visible = true;
+          const haloScale = 1.0 + ((elapsed - duration) * 1.5) % 2.5;
+          arrivalHaloRef.current.scale.set(haloScale, haloScale, haloScale);
+          arrivalHaloRef.current.position.set(4.8, 0, 0);
+        } else {
+          arrivalHaloRef.current.visible = false;
+        }
+      }
     }
 
     if (geodesicsActive && geodesicPaths.length > 0) {
@@ -283,10 +304,17 @@ export default function SpacetimeGrid({
 
       {/* Gao-Jafferis-Wall Teleporting Qubit Packet */}
       {erBridgeActive && teleportPacket && teleportPacket.active && (
-        <mesh ref={teleportMarkerRef}>
-          <sphereGeometry args={[0.22, 32, 32]} />
-          <meshBasicMaterial color="#34d399" />
-        </mesh>
+        <group>
+          <mesh ref={teleportMarkerRef}>
+            <sphereGeometry args={[0.26, 32, 32]} />
+            <meshBasicMaterial color="#34d399" />
+          </mesh>
+          {/* Expanding shockwave halo at Mouth B upon arrival */}
+          <mesh ref={arrivalHaloRef} visible={false}>
+            <ringGeometry args={[0.3, 0.45, 32]} />
+            <meshBasicMaterial color="#6ee7b7" side={THREE.DoubleSide} transparent opacity={0.8} />
+          </mesh>
+        </group>
       )}
 
       {/* Black Hole Event Horizon */}

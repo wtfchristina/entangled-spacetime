@@ -23,7 +23,7 @@ export default function App() {
   const [boundaryAngle, setBoundaryAngle] = useState(2.1);
 
   // Gao-Jafferis-Wall Traversable Teleportation State
-  const [teleportPacket, setTeleportPacket] = useState({ active: false, startTime: 0 });
+  const [teleportPacket, setTeleportPacket] = useState({ active: false, startTime: 0, phase: 'idle' });
 
   const clockRef = useRef(0);
   const audioCtxRef = useRef(null);
@@ -108,22 +108,29 @@ export default function App() {
     }
   };
 
-  // Feature: Gao-Jafferis-Wall Traversable Wormhole Teleportation Pulse
+  // Feature: Gao-Jafferis-Wall Traversable Teleportation with Arrival Docking
   const fireTeleportationProtocol = () => {
     if (!erBridgeActive) setErBridgeActive(true);
-    setTeleportPacket({ active: true, startTime: clockRef.current });
+
+    const now = clockRef.current;
+    setTeleportPacket({ active: true, startTime: now, phase: 'transiting' });
 
     if (audioCtxRef.current && oscRef.current && audioEnabled) {
       const ctx = audioCtxRef.current;
-      // High energetic chirping pulse representing quantum state transmission
-      oscRef.current.frequency.setValueAtTime(440, ctx.currentTime);
-      oscRef.current.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 1.2);
-      oscRef.current.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 2.4);
+      oscRef.current.frequency.setValueAtTime(320, ctx.currentTime);
+      oscRef.current.frequency.exponentialRampToValueAtTime(740, ctx.currentTime + 1.2);
+      oscRef.current.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 2.4);
     }
 
+    // Phase 2: Arrived and docked at Mouth B (at 2.4s)
     setTimeout(() => {
-      setTeleportPacket({ active: false, startTime: 0 });
-    }, 2500);
+      setTeleportPacket((prev) => ({ ...prev, phase: 'arrived' }));
+    }, 2400);
+
+    // Phase 3: Complete cycle (at 5.5s)
+    setTimeout(() => {
+      setTeleportPacket({ active: false, startTime: 0, phase: 'idle' });
+    }, 5500);
   };
 
   const injectPauliNoise = () => {
@@ -165,6 +172,10 @@ export default function App() {
         erBridgeActive,
         geodesicsActive,
         impactParameter: impactParamY
+      },
+      teleportationProtocol: {
+        status: teleportPacket.phase,
+        fidelity: teleportPacket.phase === 'arrived' ? '0.998' : 'N/A'
       },
       holographicDuality: {
         ryuTakayanagiMinimalArea: telemetry.rtArea,
@@ -277,26 +288,35 @@ export default function App() {
           </button>
         </div>
 
-        {/* Gao-Jafferis-Wall Traversable Teleportation Trigger */}
+        {/* Gao-Jafferis-Wall Traversable Teleportation Console */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#34d399' }}>
               TRAVERSABLE WORMHOLE PROTOCOL
             </span>
-            <span style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'monospace' }}>
-              Gao-Jafferis-Wall
+            <span
+              style={{
+                fontSize: '10px',
+                fontFamily: 'monospace',
+                color: teleportPacket.phase === 'arrived' ? '#34d399' : teleportPacket.phase === 'transiting' ? '#facc15' : '#9ca3af'
+              }}
+            >
+              {teleportPacket.phase === 'transiting' && '● TRANSITING'}
+              {teleportPacket.phase === 'arrived' && '✔ RECONSTRUCTED'}
+              {teleportPacket.phase === 'idle' && 'READY'}
             </span>
           </div>
           <button
             onClick={fireTeleportationProtocol}
+            disabled={teleportPacket.active}
             style={{
               width: '100%',
               padding: '9px',
-              backgroundColor: teleportPacket.active ? '#059669' : '#064e3b',
+              backgroundColor: teleportPacket.active ? '#065f46' : '#047857',
               color: '#d1fae5',
-              border: teleportPacket.active ? '1px solid #34d399' : '1px solid #10b981',
+              border: '1px solid #10b981',
               borderRadius: '6px',
-              cursor: 'pointer',
+              cursor: teleportPacket.active ? 'not-allowed' : 'pointer',
               fontSize: '11px',
               fontWeight: 'bold',
               display: 'flex',
@@ -305,7 +325,11 @@ export default function App() {
               gap: '6px'
             }}
           >
-            <span>{teleportPacket.active ? '⚡ Transmitting Qubit Through Bulk...' : 'Teleport Qubit Across Bridge (A → B)'}</span>
+            <span>
+              {teleportPacket.phase === 'transiting' && '⚡ Transiting Wormhole Throat (A → B)...'}
+              {teleportPacket.phase === 'arrived' && '🎉 Qubit Reconstructed at Mouth B!'}
+              {teleportPacket.phase === 'idle' && 'Teleport Qubit Across Bridge (A → B)'}
+            </span>
           </button>
         </div>
 
@@ -589,6 +613,7 @@ export default function App() {
             rtActive={rtActive}
             boundaryAngle={boundaryAngle}
             teleportPacket={teleportPacket}
+            clockRef={clockRef}
             triggerPerturbation={triggerPerturbation}
           />
           
