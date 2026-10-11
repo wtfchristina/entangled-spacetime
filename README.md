@@ -1,16 +1,42 @@
-# React + Vite
+# Entangled Spacetime Visualizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive 3D web application modeling emergent spacetime geometry from quantum entanglement, inspired by the AdS/CFT correspondence and the Ryu-Takayanagi formula.
 
-Currently, two official plugins are available:
+🔗 **Live Demo:** [entangled-spacetime.vercel.app](https://entangled-spacetime.vercel.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Overview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+In theoretical physics, holographic duality suggests that spacetime geometry is not fundamental, but emerges from entanglement structures within a boundary quantum state. This project provides a real-time, interactive visual representation of this principle.
 
-## Expanding the ESLint configuration
+By adjusting the **Entanglement Entropy** parameter, users can observe the physical lattice contract and exhibit quantum fluctuations, simulating the non-linear relationship between quantum information density and spatial geometry.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Key Features
+
+- **Dynamic Tensor Network Grid:** 125-node, 300-bond 3D lattice rendered using Three.js and React Three Fiber.
+- **Ryu-Takayanagi Warp Simulation:** Procedural mathematical engine modeling gravitational convergence as entanglement entropy increases.
+- **Optimized 60 FPS Render Pipeline:** Utilizes raw BufferAttributes and memoized geometry coordinates for fluid performance across devices.
+- **Interactive Technical Dashboard:** Real-time metrics tracking active qubits, tensor bonds, and entropy states.
+
+## Tech Stack
+
+- **Frontend:** React 19, Vite
+- **3D Graphics:** Three.js, React Three Fiber, @react-three/drei
+- **Deployment:** Vercel
+
+## Local Development
+
+```bash
+# Clone the repository
+git clone [https://github.com/wtfchristina/entangled-spacetime.git](https://github.com/wtfchristina/entangled-spacetime.git)
+
+# Navigate to project folder
+cd entangled-spacetime
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
+```
