@@ -5,7 +5,8 @@ import {
   calculateNodeState,
   generateWormholeGeometry,
   calculateRyuTakayanagiSurface,
-  traceGeodesicRays
+  traceGeodesicRays,
+  computeTeleportationPosition
 } from '../logic/tensorCalculations';
 
 export default function SpacetimeGrid({
@@ -19,6 +20,7 @@ export default function SpacetimeGrid({
   syndromeErrors,
   rtActive,
   boundaryAngle,
+  teleportPacket,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
@@ -27,6 +29,7 @@ export default function SpacetimeGrid({
   const horizonRef = useRef();
   const wormholeRef = useRef();
   const rtSurfaceRef = useRef();
+  const teleportMarkerRef = useRef();
   const photonMarkersRef = useRef([]);
 
   // 1. Build Base Lattice Topology
@@ -95,11 +98,12 @@ export default function SpacetimeGrid({
   const hotColor = useMemo(() => new THREE.Color('#f43f5e'), []);
   const horizonColor = useMemo(() => new THREE.Color('#a855f7'), []);
   const wormholeColor = useMemo(() => new THREE.Color('#06b6d4'), []);
+  const shockwaveColor = useMemo(() => new THREE.Color('#10b981'), []);
   const errorColor = useMemo(() => new THREE.Color('#f59e0b'), []);
   const normalNodeColor = useMemo(() => new THREE.Color('#93c5fd'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
-  // 2. 60 FPS Physics Simulation Loop
+  // 2. 60 FPS Render Loop
   useFrame((state, delta) => {
     groupRef.current.rotation.y += delta * 0.10;
     groupRef.current.rotation.x += delta * 0.03;
@@ -111,10 +115,24 @@ export default function SpacetimeGrid({
       horizonRef.current.scale.set(pulse, pulse, pulse);
     }
 
+    // Dynamic Wormhole Geometry & Shockwave Color Flash
     if (wormholeRef.current && erBridgeActive) {
       const wh = generateWormholeGeometry(entanglement, time);
       wormholeRef.current.geometry.attributes.position.array.set(wh.vertices);
       wormholeRef.current.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Gao-Jafferis-Wall Quantum State Teleportation packet traversal
+    if (teleportMarkerRef.current && teleportPacket && teleportPacket.active) {
+      const duration = 2.4; // 2.4 seconds traversal time
+      const elapsed = time - teleportPacket.startTime;
+      const progress = Math.min(1.0, elapsed / duration);
+
+      const pos = computeTeleportationPosition(progress, entanglement);
+      teleportMarkerRef.current.position.set(pos.x, pos.y, pos.z);
+
+      const pulseScale = 1.0 + Math.sin(time * 24) * 0.3;
+      teleportMarkerRef.current.scale.set(pulseScale, pulseScale, pulseScale);
     }
 
     if (geodesicsActive && geodesicPaths.length > 0) {
@@ -157,7 +175,8 @@ export default function SpacetimeGrid({
         blackHoleActive,
         erBridgeActive,
         nodeIndex,
-        syndromeErrors
+        syndromeErrors,
+        teleportPacket
       );
 
       currentPosArray[i] = node.x;
@@ -179,7 +198,11 @@ export default function SpacetimeGrid({
       const strainFactor = Math.min(1.0, node.strain * 2.2 + entanglement * 0.35);
 
       if (erBridgeActive) {
-        tempColor.copy(coolColor).lerp(wormholeColor, 0.7);
+        if (teleportPacket && teleportPacket.active) {
+          tempColor.copy(wormholeColor).lerp(shockwaveColor, 0.7);
+        } else {
+          tempColor.copy(coolColor).lerp(wormholeColor, 0.7);
+        }
       } else if (blackHoleActive && baseDist < 2.0) {
         tempColor.copy(hotColor).lerp(horizonColor, 0.6);
       } else {
@@ -251,11 +274,19 @@ export default function SpacetimeGrid({
             />
           </bufferGeometry>
           <lineBasicMaterial
-            color="#06b6d4"
+            color={teleportPacket?.active ? '#10b981' : '#06b6d4'}
             transparent
             opacity={0.35 + entanglement * 0.55}
           />
         </lineSegments>
+      )}
+
+      {/* Gao-Jafferis-Wall Teleporting Qubit Packet */}
+      {erBridgeActive && teleportPacket && teleportPacket.active && (
+        <mesh ref={teleportMarkerRef}>
+          <sphereGeometry args={[0.22, 32, 32]} />
+          <meshBasicMaterial color="#34d399" />
+        </mesh>
       )}
 
       {/* Black Hole Event Horizon */}

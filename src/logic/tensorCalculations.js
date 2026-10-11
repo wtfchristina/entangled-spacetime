@@ -1,6 +1,7 @@
 /**
  * tensorCalculations.js
- * Holographic Duality, Ryu-Takayanagi Minimal Surface, and QEC Engine
+ * Advanced Holographic Bulk Reconstruction, Gao-Jafferis-Wall Traversable Wormhole Protocol,
+ * Ryu-Takayanagi Minimal Surface, and Fault-Tolerant QEC Engine
  */
 
 export function calculateNodeState(
@@ -15,7 +16,8 @@ export function calculateNodeState(
   blackHoleActive,
   erBridgeActive,
   nodeIndex,
-  syndromeErrors = []
+  syndromeErrors = [],
+  teleportPacket = null
 ) {
   const normDist = Math.max(0.001, baseDist / 5);
 
@@ -73,8 +75,15 @@ export function calculateNodeState(
     finalY = baseY * 0.75;
     finalZ = baseZ * 0.75;
 
+    // Entanglement pull: draw nodes toward the throat
     const pullTowardsThroat = entanglement * 1.2 * Math.exp(-Math.abs(baseX));
     finalX -= sideSign * pullTowardsThroat;
+
+    // Shockwave pulse dilation during teleportation
+    if (teleportPacket && teleportPacket.active) {
+      const shockEffect = Math.sin(time * 10) * 0.15 * Math.exp(-Math.abs(baseX));
+      finalY += shockEffect;
+    }
   }
 
   if (blackHoleActive && !erBridgeActive) {
@@ -109,23 +118,18 @@ export function calculateNodeState(
   return { x: finalX, y: finalY, z: finalZ, strain, hasError };
 }
 
-/**
- * Calculates the Ryu-Takayanagi minimal bulk surface gamma_A
- * dipping into the bulk AdS interior anchored to boundary subregion A
- */
 export function calculateRyuTakayanagiSurface(boundaryAngle, entanglement) {
   const steps = 40;
-  const radius = 4.4; // Boundary sphere radius
+  const radius = 4.4;
   const maxDip = (boundaryAngle / Math.PI) * (2.8 * (1 - entanglement * 0.35));
 
   const vertices = [];
   const halfAngle = boundaryAngle / 2;
 
   for (let i = 0; i <= steps; i++) {
-    const t = (i / steps) * 2 - 1; // -1 to 1
+    const t = (i / steps) * 2 - 1;
     const phi = t * halfAngle;
 
-    // Hyperbolic geodesic curve dipping into bulk origin (z-depth)
     const dip = (1 - t * t) * maxDip;
     const currentR = radius - dip;
 
@@ -136,7 +140,6 @@ export function calculateRyuTakayanagiSurface(boundaryAngle, entanglement) {
     vertices.push(x, y, z);
   }
 
-  // Calculate geodesic length (proxy for minimal surface area)
   let geodesicArea = 0;
   for (let i = 0; i < vertices.length - 3; i += 3) {
     const dx = vertices[i + 3] - vertices[i];
@@ -148,7 +151,7 @@ export function calculateRyuTakayanagiSurface(boundaryAngle, entanglement) {
   return {
     vertices: new Float32Array(vertices),
     minimalArea: geodesicArea.toFixed(2),
-    holographicEntropy: (geodesicArea / 4).toFixed(3) // S = Area / 4G
+    holographicEntropy: (geodesicArea / 4).toFixed(3)
   };
 }
 
@@ -249,6 +252,20 @@ export function traceGeodesicRays(impactParamY, entanglement, blackHoleActive, e
   });
 }
 
+/**
+ * Computes Gao-Jafferis-Wall traversable teleportation position through the wormhole
+ */
+export function computeTeleportationPosition(progress, entanglement) {
+  // Path travels from mouth A (-4.5, 0, 0) through throat (0, 0, 0) to mouth B (+4.5, 0, 0)
+  const x = -4.5 + progress * 9.0;
+  // Gaussian throat compression
+  const throatFactor = Math.exp(-Math.pow(x / 2.0, 2));
+  const y = Math.sin(progress * Math.PI) * 0.4 * (1 - throatFactor);
+  const z = Math.cos(progress * Math.PI * 4) * 0.25 * throatFactor;
+
+  return { x, y, z };
+}
+
 export function computeMetricTelemetry(
   entanglement,
   stateMode,
@@ -256,14 +273,15 @@ export function computeMetricTelemetry(
   erBridgeActive,
   impactParamY,
   syndromeErrors = [],
-  boundaryAngle = 1.8
+  boundaryAngle = 1.8,
+  teleportPacket = null
 ) {
   let g00Val = -(1 - Math.min(0.85, entanglement * 0.7));
   let grrVal = 1 / (1 - Math.min(0.85, entanglement * 0.65) + 0.001);
   let ricciBase = entanglement * 4.2;
 
   if (erBridgeActive) {
-    g00Val = -0.42;
+    g00Val = teleportPacket?.active ? -0.78 : -0.42; // Gao-Jafferis-Wall negative energy shift
     grrVal = 1.0;
     ricciBase = entanglement * 8.6;
   } else if (blackHoleActive) {
@@ -288,6 +306,9 @@ export function computeMetricTelemetry(
 
   const rt = calculateRyuTakayanagiSurface(boundaryAngle, entanglement);
 
+  // HKLL reconstruction error proxy based on boundary subregion coverage
+  const hkllError = Math.max(0.002, Math.exp(-boundaryAngle * 1.8)).toFixed(4);
+
   return {
     g00: g00Val.toFixed(3),
     grr: grrVal.toFixed(3),
@@ -299,6 +320,7 @@ export function computeMetricTelemetry(
     logicalFidelity,
     activeSyndromes: numErrors,
     rtArea: rt.minimalArea,
-    holographicEntropy: rt.holographicEntropy
+    holographicEntropy: rt.holographicEntropy,
+    hkllError: `ε = ${hkllError}`
   };
 }

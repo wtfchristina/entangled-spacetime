@@ -18,9 +18,12 @@ export default function App() {
   const [syndromeErrors, setSyndromeErrors] = useState([]);
   const [cinematicBloom, setCinematicBloom] = useState(true);
   
-  // Ryu-Takayanagi Holographic Surface States
+  // Ryu-Takayanagi & HKLL Subregion States
   const [rtActive, setRtActive] = useState(true);
   const [boundaryAngle, setBoundaryAngle] = useState(2.1);
+
+  // Gao-Jafferis-Wall Traversable Teleportation State
+  const [teleportPacket, setTeleportPacket] = useState({ active: false, startTime: 0 });
 
   const clockRef = useRef(0);
   const audioCtxRef = useRef(null);
@@ -35,7 +38,8 @@ export default function App() {
     erBridgeActive,
     impactParamY,
     syndromeErrors,
-    boundaryAngle
+    boundaryAngle,
+    teleportPacket
   );
 
   useEffect(() => {
@@ -104,6 +108,24 @@ export default function App() {
     }
   };
 
+  // Feature: Gao-Jafferis-Wall Traversable Wormhole Teleportation Pulse
+  const fireTeleportationProtocol = () => {
+    if (!erBridgeActive) setErBridgeActive(true);
+    setTeleportPacket({ active: true, startTime: clockRef.current });
+
+    if (audioCtxRef.current && oscRef.current && audioEnabled) {
+      const ctx = audioCtxRef.current;
+      // High energetic chirping pulse representing quantum state transmission
+      oscRef.current.frequency.setValueAtTime(440, ctx.currentTime);
+      oscRef.current.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 1.2);
+      oscRef.current.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 2.4);
+    }
+
+    setTimeout(() => {
+      setTeleportPacket({ active: false, startTime: 0 });
+    }, 2500);
+  };
+
   const injectPauliNoise = () => {
     const totalQubits = 125;
     const newErrors = new Set(syndromeErrors);
@@ -147,6 +169,7 @@ export default function App() {
       holographicDuality: {
         ryuTakayanagiMinimalArea: telemetry.rtArea,
         holographicEntanglementEntropy: telemetry.holographicEntropy,
+        hkllReconstructionError: telemetry.hkllError,
         formula: 'S_A = Area(gamma_A) / 4G'
       },
       relativityTelemetry: {
@@ -199,7 +222,7 @@ export default function App() {
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          gap: '13px',
+          gap: '12px',
           overflowY: 'auto',
           zIndex: 10
         }}
@@ -209,11 +232,11 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
-            Ryu-Takayanagi Surface & Holographic Duality Visualizer
+            Traversable Wormhole Teleportation & HKLL Bulk Reconstruction
           </p>
         </div>
 
-        {/* Feature Toggles: ER = EPR, Black Hole */}
+        {/* Feature Toggles: ER = EPR & Black Hole */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={() => {
@@ -254,7 +277,39 @@ export default function App() {
           </button>
         </div>
 
-        {/* Ryu-Takayanagi Holographic Surface Controls */}
+        {/* Gao-Jafferis-Wall Traversable Teleportation Trigger */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#34d399' }}>
+              TRAVERSABLE WORMHOLE PROTOCOL
+            </span>
+            <span style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'monospace' }}>
+              Gao-Jafferis-Wall
+            </span>
+          </div>
+          <button
+            onClick={fireTeleportationProtocol}
+            style={{
+              width: '100%',
+              padding: '9px',
+              backgroundColor: teleportPacket.active ? '#059669' : '#064e3b',
+              color: '#d1fae5',
+              border: teleportPacket.active ? '1px solid #34d399' : '1px solid #10b981',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>{teleportPacket.active ? '⚡ Transmitting Qubit Through Bulk...' : 'Teleport Qubit Across Bridge (A → B)'}</span>
+          </button>
+        </div>
+
+        {/* Ryu-Takayanagi & HKLL Reconstruction Controls */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#10b981' }}>
@@ -323,7 +378,7 @@ export default function App() {
               TOPOLOGICAL QUANTUM ERROR CORRECTION
             </span>
             <span style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>
-              Code: [[125, 1, 5]]
+              [[125, 1, 5]]
             </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -340,7 +395,7 @@ export default function App() {
                 fontWeight: '600'
               }}
             >
-              Inject Pauli Noise (+5)
+              Inject Noise (+5)
             </button>
             <button
               onClick={runSyndromeDecoder}
@@ -356,7 +411,7 @@ export default function App() {
                 fontWeight: '600'
               }}
             >
-              Run Syndrome Decoder
+              Decode Syndromes
             </button>
           </div>
         </div>
@@ -366,7 +421,7 @@ export default function App() {
           <button
             onClick={() => setGeodesicsActive(!geodesicsActive)}
             style={{
-              padding: '9px',
+              padding: '8px',
               backgroundColor: geodesicsActive ? '#ca8a04' : '#1f2937',
               color: '#fff',
               border: geodesicsActive ? '1px solid #facc15' : '1px solid #374151',
@@ -382,7 +437,7 @@ export default function App() {
           <button
             onClick={() => setCinematicBloom(!cinematicBloom)}
             style={{
-              padding: '9px',
+              padding: '8px',
               backgroundColor: cinematicBloom ? '#db2777' : '#1f2937',
               color: '#fff',
               border: cinematicBloom ? '1px solid #f472b6' : '1px solid #374151',
@@ -396,12 +451,12 @@ export default function App() {
           </button>
         </div>
 
-        {/* Audio Sonification and Pulse */}
+        {/* Audio and Pulse */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={() => setAudioEnabled(!audioEnabled)}
             style={{
-              padding: '9px',
+              padding: '8px',
               backgroundColor: audioEnabled ? '#065f46' : '#111827',
               color: '#f8fafc',
               border: audioEnabled ? '1px solid #34d399' : '1px solid #374151',
@@ -417,7 +472,7 @@ export default function App() {
           <button
             onClick={triggerPerturbation}
             style={{
-              padding: '9px',
+              padding: '8px',
               backgroundColor: '#1e293b',
               color: '#f8fafc',
               border: '1px solid #475569',
@@ -431,7 +486,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Export & Snapshot */}
+        {/* Snapshot & Export */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={captureSnapshot}
@@ -466,30 +521,30 @@ export default function App() {
           </button>
         </div>
 
-        {/* Holographic Telemetry Readouts */}
+        {/* Holographic & HKLL Telemetry Readouts */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
-            HOLOGRAPHIC & RYU-TAKAYANAGI TELEMETRY
+            HOLOGRAPHIC & HKLL BULK TELEMETRY
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>MINIMAL AREA Area(γ_A)</div>
-              <div style={{ fontSize: '15px', color: '#10b981', fontFamily: 'monospace', marginTop: '2px' }}>
+              <div style={{ fontSize: '14px', color: '#10b981', fontFamily: 'monospace', marginTop: '2px' }}>
                 {telemetry.rtArea} L_P²
               </div>
             </div>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>HOLOGRAPHIC ENTROPY S_A</div>
-              <div style={{ fontSize: '15px', color: '#10b981', fontFamily: 'monospace', marginTop: '2px' }}>
-                {telemetry.holographicEntropy}
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>HKLL BULK ERROR</div>
+              <div style={{ fontSize: '14px', color: '#38bdf8', fontFamily: 'monospace', marginTop: '2px' }}>
+                {telemetry.hkllError}
               </div>
             </div>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>LOGICAL FIDELITY (F_L)</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>LOGICAL FIDELITY</div>
               <div
                 style={{
-                  fontSize: '15px',
-                  color: telemetry.logicalFidelity > 0.8 ? '#38bdf8' : '#f59e0b',
+                  fontSize: '14px',
+                  color: telemetry.logicalFidelity > 0.8 ? '#34d399' : '#f59e0b',
                   fontFamily: 'monospace',
                   marginTop: '2px'
                 }}
@@ -499,7 +554,7 @@ export default function App() {
             </div>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>RICCI SCALAR (R)</div>
-              <div style={{ fontSize: '15px', color: '#f43f5e', fontFamily: 'monospace', marginTop: '2px' }}>
+              <div style={{ fontSize: '14px', color: '#f43f5e', fontFamily: 'monospace', marginTop: '2px' }}>
                 {telemetry.ricciScalar}
               </div>
             </div>
@@ -533,6 +588,7 @@ export default function App() {
             syndromeErrors={syndromeErrors}
             rtActive={rtActive}
             boundaryAngle={boundaryAngle}
+            teleportPacket={teleportPacket}
             triggerPerturbation={triggerPerturbation}
           />
           
