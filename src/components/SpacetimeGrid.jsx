@@ -1,13 +1,15 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { calculateNodeState } from '../logic/tensorCalculations';
+import { calculateNodeState, traceGeodesicRays } from '../logic/tensorCalculations';
 
 export default function SpacetimeGrid({
   entanglement,
   stateMode,
   perturbation,
   blackHoleActive,
+  geodesicsActive,
+  impactParamY,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
@@ -60,17 +62,22 @@ export default function SpacetimeGrid({
   const dynamicPositions = useMemo(() => new Float32Array(basePositions), [basePositions]);
   const dynamicColors = useMemo(() => new Float32Array(lineColorsTemplate), [lineColorsTemplate]);
 
+  // Compute curved null geodesic paths
+  const geodesicPaths = useMemo(() => {
+    if (!geodesicsActive) return [];
+    return traceGeodesicRays(impactParamY, entanglement, blackHoleActive);
+  }, [geodesicsActive, impactParamY, entanglement, blackHoleActive]);
+
   const coolColor = useMemo(() => new THREE.Color('#38bdf8'), []);
   const hotColor = useMemo(() => new THREE.Color('#f43f5e'), []);
   const horizonColor = useMemo(() => new THREE.Color('#a855f7'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
-  // 2. 60 FPS Physics Simulation Loop
+  // 2. 60 FPS Render Loop
   useFrame((state, delta) => {
     groupRef.current.rotation.y += delta * 0.12;
     groupRef.current.rotation.x += delta * 0.04;
 
-    // Pulse event horizon if active
     if (horizonRef.current && blackHoleActive) {
       const pulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.04;
       horizonRef.current.scale.set(pulse, pulse, pulse);
@@ -102,7 +109,6 @@ export default function SpacetimeGrid({
       currentPosArray[i + 1] = node.y;
       currentPosArray[i + 2] = node.z;
 
-      // Color mapping: Cyan -> Magenta, with Purple shift in extreme gravity
       const strainFactor = Math.min(1.0, node.strain * 2.2 + entanglement * 0.35);
       if (blackHoleActive && baseDist < 2.0) {
         tempColor.copy(hotColor).lerp(horizonColor, 0.6);
@@ -144,6 +150,22 @@ export default function SpacetimeGrid({
         </mesh>
       )}
 
+      {/* Null Geodesic Photon Beams */}
+      {geodesicsActive &&
+        geodesicPaths.map((pathPoints, idx) => (
+          <line key={idx}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                count={pathPoints.length / 3}
+                array={pathPoints}
+                itemSize={3}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial color="#facc15" linewidth={2} transparent opacity={0.9} />
+          </line>
+        ))}
+
       {/* Qubit Nodes */}
       <points ref={pointsRef}>
         <bufferGeometry>
@@ -163,7 +185,7 @@ export default function SpacetimeGrid({
         />
       </points>
 
-      {/* Dynamic Entanglement Bonds with Vertex Color Stress Heatmap */}
+      {/* Dynamic Entanglement Bonds */}
       <lineSegments ref={linesRef}>
         <bufferGeometry>
           <bufferAttribute

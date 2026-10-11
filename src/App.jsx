@@ -10,20 +10,19 @@ export default function App() {
   const [perturbation, setPerturbation] = useState({ active: false, startTime: 0 });
   const [blackHoleActive, setBlackHoleActive] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [geodesicsActive, setGeodesicsActive] = useState(false);
+  const [impactParamY, setImpactParamY] = useState(1.6);
 
   const clockRef = useRef(0);
   const audioCtxRef = useRef(null);
   const oscRef = useRef(null);
   const gainRef = useRef(null);
 
-  const telemetry = computeMetricTelemetry(entanglement, stateMode, blackHoleActive);
+  const telemetry = computeMetricTelemetry(entanglement, stateMode, blackHoleActive, impactParamY);
 
-  // Initialize and modulate Web Audio synthesizer
   useEffect(() => {
     if (!audioEnabled) {
-      if (audioCtxRef.current) {
-        audioCtxRef.current.suspend();
-      }
+      if (audioCtxRef.current) audioCtxRef.current.suspend();
       return;
     }
 
@@ -34,7 +33,7 @@ export default function App() {
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(65, ctx.currentTime); // Deep resonant drone
+      osc.frequency.setValueAtTime(65, ctx.currentTime);
       gain.gain.setValueAtTime(0.08, ctx.currentTime);
 
       osc.connect(gain);
@@ -49,7 +48,6 @@ export default function App() {
     }
   }, [audioEnabled]);
 
-  // Modulate drone pitch & tone based on curvature and black hole state
   useEffect(() => {
     if (audioCtxRef.current && oscRef.current && audioEnabled) {
       const ctx = audioCtxRef.current;
@@ -64,7 +62,6 @@ export default function App() {
   const triggerPerturbation = () => {
     setPerturbation({ active: true, startTime: clockRef.current });
 
-    // Brief frequency modulation for the graviton wave
     if (audioCtxRef.current && oscRef.current && audioEnabled) {
       const ctx = audioCtxRef.current;
       const currentFreq = oscRef.current.frequency.value;
@@ -89,14 +86,14 @@ export default function App() {
       {/* Sidebar Controls & Telemetry */}
       <div
         style={{
-          width: '420px',
+          width: '430px',
           padding: '24px',
           backgroundColor: '#0b0f19',
           borderRight: '1px solid #1f2937',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          gap: '18px',
+          gap: '16px',
           overflowY: 'auto',
           zIndex: 10
         }}
@@ -106,7 +103,7 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.5 }}>
-            Emergent Spacetime Geometry, Black Hole Collapse & Sonification
+            Emergent Spacetime, Geodesic Lensing & Curvature Dynamics
           </p>
         </div>
 
@@ -146,7 +143,7 @@ export default function App() {
         </div>
 
         {/* Entanglement Entropy Slider */}
-        <div style={{ backgroundColor: '#111827', padding: '14px', borderRadius: '8px', border: '1px solid #374151' }}>
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af' }}>ENTANGLEMENT ENTROPY (S)</span>
             <span style={{ fontSize: '13px', color: '#38bdf8', fontFamily: 'monospace' }}>
@@ -165,7 +162,46 @@ export default function App() {
           />
         </div>
 
-        {/* Action Toggles: Black Hole & Audio Sonification */}
+        {/* Geodesic Ray Controls */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#facc15' }}>NULL GEODESIC RAYS (LIGHT)</span>
+            <button
+              onClick={() => setGeodesicsActive(!geodesicsActive)}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                backgroundColor: geodesicsActive ? '#ca8a04' : '#1f2937',
+                color: '#fff',
+                border: '1px solid #eab308',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {geodesicsActive ? 'Beams ON' : 'Beams OFF'}
+            </button>
+          </div>
+          {geodesicsActive && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '4px' }}>
+                <span>Impact Parameter (b)</span>
+                <span style={{ fontFamily: 'monospace', color: '#facc15' }}>{impactParamY.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.2"
+                max="3.5"
+                step="0.05"
+                value={impactParamY}
+                onChange={(e) => setImpactParamY(parseFloat(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer', accentColor: '#facc15' }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Feature Toggles */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={() => setBlackHoleActive(!blackHoleActive)}
@@ -200,11 +236,11 @@ export default function App() {
           </button>
         </div>
 
-        {/* Graviton Pulse Button */}
+        {/* Graviton Pulse */}
         <button
           onClick={triggerPerturbation}
           style={{
-            padding: '11px',
+            padding: '10px',
             backgroundColor: '#1e293b',
             color: '#f8fafc',
             border: '1px solid #475569',
@@ -217,33 +253,33 @@ export default function App() {
           Emit Graviton Pulse (Perturbation)
         </button>
 
-        {/* Telemetry Dashboard */}
+        {/* Telemetry Readouts */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
-            METRIC & HOLOGRAPHIC TELEMETRY
+            METRIC & GEODESIC TELEMETRY
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
             <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>RICCI SCALAR (R)</div>
-              <div style={{ fontSize: '16px', color: blackHoleActive ? '#c084fc' : '#f43f5e', fontFamily: 'monospace', marginTop: '3px' }}>
+              <div style={{ fontSize: '15px', color: blackHoleActive ? '#c084fc' : '#f43f5e', fontFamily: 'monospace', marginTop: '3px' }}>
                 {telemetry.ricciScalar}
               </div>
             </div>
             <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>VON NEUMANN (S_vN)</div>
-              <div style={{ fontSize: '16px', color: '#38bdf8', fontFamily: 'monospace', marginTop: '3px' }}>
-                {telemetry.vonNeumannEntropy}
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>DEFLECTION (Δθ)</div>
+              <div style={{ fontSize: '15px', color: '#facc15', fontFamily: 'monospace', marginTop: '3px' }}>
+                {telemetry.deflectionAngle}
               </div>
             </div>
             <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>METRIC g_00</div>
-              <div style={{ fontSize: '16px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '3px' }}>
+              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '3px' }}>
                 {telemetry.g00}
               </div>
             </div>
             <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>SPATIAL g_rr</div>
-              <div style={{ fontSize: '16px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '3px' }}>
+              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '3px' }}>
                 {telemetry.grr}
               </div>
             </div>
@@ -251,7 +287,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3D Canvas Viewport */}
+      {/* 3D Canvas */}
       <div style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
         <Canvas
           camera={{ position: [0, 4, 11], fov: 45 }}
@@ -265,6 +301,8 @@ export default function App() {
             stateMode={stateMode}
             perturbation={perturbation}
             blackHoleActive={blackHoleActive}
+            geodesicsActive={geodesicsActive}
+            impactParamY={impactParamY}
             triggerPerturbation={triggerPerturbation}
           />
           <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
