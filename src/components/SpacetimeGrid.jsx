@@ -16,6 +16,7 @@ export default function SpacetimeGrid({
   const linesRef = useRef();
   const groupRef = useRef();
   const horizonRef = useRef();
+  const photonMarkersRef = useRef([]);
 
   // 1. Build Base Lattice Topology
   const { basePositions, indices, lineColorsTemplate } = useMemo(() => {
@@ -81,6 +82,24 @@ export default function SpacetimeGrid({
     if (horizonRef.current && blackHoleActive) {
       const pulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.04;
       horizonRef.current.scale.set(pulse, pulse, pulse);
+    }
+
+    // Animate photon particles along the computed trajectories
+    if (geodesicsActive && geodesicPaths.length > 0) {
+      const speed = 0.8;
+      const progress = (state.clock.elapsedTime * speed) % 1;
+
+      geodesicPaths.forEach((pathPoints, idx) => {
+        const marker = photonMarkersRef.current[idx];
+        if (marker) {
+          const totalPoints = pathPoints.length / 3;
+          const targetIndex = Math.floor(progress * (totalPoints - 1));
+          const px = pathPoints[targetIndex * 3];
+          const py = pathPoints[targetIndex * 3 + 1];
+          const pz = pathPoints[targetIndex * 3 + 2];
+          marker.position.set(px, py, pz);
+        }
+      });
     }
 
     const currentPosArray = pointsRef.current.geometry.attributes.position.array;
@@ -150,20 +169,26 @@ export default function SpacetimeGrid({
         </mesh>
       )}
 
-      {/* Null Geodesic Photon Beams */}
+      {/* Null Geodesic Paths & Traveling Photons */}
       {geodesicsActive &&
         geodesicPaths.map((pathPoints, idx) => (
-          <line key={idx}>
-            <bufferGeometry>
-              <bufferAttribute
-                attach="attributes-position"
-                count={pathPoints.length / 3}
-                array={pathPoints}
-                itemSize={3}
-              />
-            </bufferGeometry>
-            <lineBasicMaterial color="#facc15" linewidth={2} transparent opacity={0.9} />
-          </line>
+          <group key={idx}>
+            <line>
+              <bufferGeometry>
+                <bufferAttribute
+                  attach="attributes-position"
+                  count={pathPoints.length / 3}
+                  array={pathPoints}
+                  itemSize={3}
+                />
+              </bufferGeometry>
+              <lineBasicMaterial color="#eab308" transparent opacity={0.4} />
+            </line>
+            <mesh ref={(el) => (photonMarkersRef.current[idx] = el)}>
+              <sphereGeometry args={[0.09, 16, 16]} />
+              <meshBasicMaterial color="#fef08a" />
+            </mesh>
+          </group>
         ))}
 
       {/* Qubit Nodes */}
