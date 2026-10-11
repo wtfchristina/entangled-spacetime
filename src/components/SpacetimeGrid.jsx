@@ -22,12 +22,16 @@ export default function SpacetimeGrid({
   boundaryAngle,
   teleportPacket,
   clockRef,
+  cameraMode,
+  controlsRef,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
   const linesRef = useRef();
   const groupRef = useRef();
   const horizonRef = useRef();
+  const accretionRingRef = useRef();
+  const accretionParticlesRef = useRef();
   const wormholeRef = useRef();
   const rtSurfaceRef = useRef();
   const teleportMarkerRef = useRef();
@@ -86,6 +90,64 @@ export default function SpacetimeGrid({
   const dynamicLineColors = useMemo(() => new Float32Array(lineColorsTemplate), [lineColorsTemplate]);
   const dynamicNodeColors = useMemo(() => new Float32Array(nodeColorsTemplate), [nodeColorsTemplate]);
 
+  // Procedural swirling texture for the accretion disk with visible radial streams
+  const accretionTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    const cx = 256;
+    const cy = 256;
+
+    // Draw radial plasma streaks to break circular symmetry
+    for (let i = 0; i < 72; i++) {
+      const angle = (i / 72) * Math.PI * 2;
+      const len = 90 + Math.random() * 140;
+      ctx.strokeStyle = i % 2 === 0 ? 'rgba(254, 215, 170, 0.75)' : 'rgba(234, 88, 12, 0.4)';
+      ctx.lineWidth = 3 + Math.random() * 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * 75, cy + Math.sin(angle) * 75);
+      ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+      ctx.stroke();
+    }
+
+    // Radial gradient fade
+    const grad = ctx.createRadialGradient(cx, cy, 75, cx, cy, 250);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    grad.addColorStop(0.35, 'rgba(251, 146, 60, 0.85)');
+    grad.addColorStop(0.75, 'rgba(194, 65, 12, 0.5)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }, []);
+
+  // Keplerian differential particle accretion cloud
+  const accretionParticles = useMemo(() => {
+    const count = 420;
+    const initialData = [];
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      const radius = 1.7 + Math.random() * 2.1;
+      const angle = Math.random() * Math.PI * 2;
+      // Differential Keplerian angular velocity (inner particles orbit faster)
+      const speed = (2.8 / Math.pow(radius, 1.25)) * (0.95 + Math.random() * 0.1);
+      const zOffset = (Math.random() - 0.5) * 0.12;
+
+      initialData.push({ radius, angle, speed, zOffset });
+    }
+
+    return { initialData, positions, colors, count };
+  }, []);
+
   const geodesicPaths = useMemo(() => {
     if (!geodesicsActive) return [];
     return traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive);
@@ -105,21 +167,103 @@ export default function SpacetimeGrid({
   const normalNodeColor = useMemo(() => new THREE.Color('#93c5fd'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
-  // 2. 60 FPS Render Loop
+  const targetCamPos = useMemo(() => new THREE.Vector3(), []);
+  const targetLookAt = useMemo(() => new THREE.Vector3(), []);
+
+  // 2. 60 FPS Simulation & Camera Loop
   useFrame((state, delta) => {
-    // Keep parent clock ref precisely in sync with Three.js engine time
     if (clockRef) {
       clockRef.current = state.clock.elapsedTime;
+    }
+
+    const time = state.clock.elapsedTime;
+
+    // Camera Director
+    if (controlsRef && controlsRef.current) {
+      switch (cameraMode) {
+        case 'horizon':
+          targetCamPos.set(0, 1.2, 4.2);
+          targetLookAt.set(0, 0, 0);
+          break;
+        case 'throat':
+          targetCamPos.set(0, 0.4, 2.4);
+          targetLookAt.set(3.5, 0, 0);
+          break;
+        case 'cft':
+          targetCamPos.set(0, 15, 0.1);
+          targetLookAt.set(0, 0, 0);
+          break;
+        case 'orbit': {
+          const orbitR = 12.0;
+          const orbitSpeed = 0.25;
+          targetCamPos.set(
+            Math.sin(time * orbitSpeed) * orbitR,
+            4.0 + Math.sin(time * 0.15) * 2.0,
+            Math.cos(time * orbitSpeed) * orbitR
+          );
+          targetLookAt.set(0, 0, 0);
+          break;
+        }
+        case 'lab':
+        default:
+          targetCamPos.set(0, 4, 13);
+          targetLookAt.set(0, 0, 0);
+          break;
+      }
+
+      state.camera.position.lerp(targetCamPos, delta * 2.8);
+      controlsRef.current.target.lerp(targetLookAt, delta * 3.5);
+      controlsRef.current.update();
     }
 
     groupRef.current.rotation.y += delta * 0.10;
     groupRef.current.rotation.x += delta * 0.03;
 
-    const time = state.clock.elapsedTime;
-
+    // Schwarzschild Event Horizon Pulse
     if (horizonRef.current && blackHoleActive) {
       const pulse = 1 + Math.sin(time * 4) * 0.04;
       horizonRef.current.scale.set(pulse, pulse, pulse);
+    }
+
+    // ACCRETION DISK SPIN & RELATIVISTIC KEPLERIAN PARTICLES
+    if (blackHoleActive && !erBridgeActive) {
+      if (accretionRingRef.current) {
+        accretionRingRef.current.rotation.z += delta * 1.8;
+      }
+
+      if (accretionParticlesRef.current) {
+        const posArr = accretionParticlesRef.current.geometry.attributes.position.array;
+        const colArr = accretionParticlesRef.current.geometry.attributes.color.array;
+        const { initialData } = accretionParticles;
+
+        for (let i = 0; i < initialData.length; i++) {
+          const p = initialData[i];
+          p.angle += delta * p.speed;
+
+          const lx = Math.cos(p.angle) * p.radius;
+          const ly = Math.sin(p.angle) * p.radius;
+          const lz = p.zOffset;
+
+          posArr[i * 3] = lx;
+          posArr[i * 3 + 1] = ly;
+          posArr[i * 3 + 2] = lz;
+
+          // Relativistic Doppler Beaming: Approaching matter is bright gold; receding is deep red
+          const doppler = Math.sin(p.angle);
+          if (doppler > 0) {
+            colArr[i * 3] = 1.0;
+            colArr[i * 3 + 1] = 0.85 + doppler * 0.15;
+            colArr[i * 3 + 2] = 0.4 + doppler * 0.5;
+          } else {
+            colArr[i * 3] = 0.9 + doppler * 0.35;
+            colArr[i * 3 + 1] = 0.35 + doppler * 0.25;
+            colArr[i * 3 + 2] = 0.05;
+          }
+        }
+
+        accretionParticlesRef.current.geometry.attributes.position.needsUpdate = true;
+        accretionParticlesRef.current.geometry.attributes.color.needsUpdate = true;
+      }
     }
 
     // Dynamic Wormhole Geometry
@@ -129,21 +273,19 @@ export default function SpacetimeGrid({
       wormholeRef.current.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Gao-Jafferis-Wall Quantum State Teleportation & Arrival Docking
+    // Teleportation Traversal
     if (teleportMarkerRef.current && teleportPacket && teleportPacket.active) {
-      const duration = 2.4; // 2.4s travel time through throat
+      const duration = 2.4;
       const elapsed = time - teleportPacket.startTime;
       const progress = Math.min(1.0, elapsed / duration);
 
       const pos = computeTeleportationPosition(progress, entanglement);
       teleportMarkerRef.current.position.set(pos.x, pos.y, pos.z);
 
-      // Pulse larger when arrived at Mouth B
       const isArrived = progress >= 0.99;
       const pulseScale = isArrived ? 1.35 + Math.sin(time * 16) * 0.25 : 1.0 + Math.sin(time * 24) * 0.2;
       teleportMarkerRef.current.scale.set(pulseScale, pulseScale, pulseScale);
 
-      // Arrival halo expansion at Mouth B (+4.8)
       if (arrivalHaloRef.current) {
         if (isArrived) {
           arrivalHaloRef.current.visible = true;
@@ -156,6 +298,7 @@ export default function SpacetimeGrid({
       }
     }
 
+    // Geodesic Photons
     if (geodesicsActive && geodesicPaths.length > 0) {
       const speed = 0.8;
       const progress = (time * speed) % 1;
@@ -173,6 +316,7 @@ export default function SpacetimeGrid({
       });
     }
 
+    // Coordinate Deformations
     const currentPosArray = pointsRef.current.geometry.attributes.position.array;
     const lineColorsArray = linesRef.current.geometry.attributes.color.array;
     const nodeColorsArray = pointsRef.current.geometry.attributes.color.array;
@@ -309,7 +453,6 @@ export default function SpacetimeGrid({
             <sphereGeometry args={[0.26, 32, 32]} />
             <meshBasicMaterial color="#34d399" />
           </mesh>
-          {/* Expanding shockwave halo at Mouth B upon arrival */}
           <mesh ref={arrivalHaloRef} visible={false}>
             <ringGeometry args={[0.3, 0.45, 32]} />
             <meshBasicMaterial color="#6ee7b7" side={THREE.DoubleSide} transparent opacity={0.8} />
@@ -317,20 +460,61 @@ export default function SpacetimeGrid({
         </group>
       )}
 
-      {/* Black Hole Event Horizon */}
+      {/* Black Hole Event Horizon & Rotating Accretion Disk */}
       {blackHoleActive && !erBridgeActive && (
-        <mesh ref={horizonRef}>
-          <sphereGeometry args={[1.5, 32, 32]} />
-          <meshStandardMaterial
-            color="#050014"
-            emissive="#a855f7"
-            emissiveIntensity={0.6}
-            roughness={0.1}
-            wireframe={true}
-            transparent={true}
-            opacity={0.75}
-          />
-        </mesh>
+        <group>
+          <mesh ref={horizonRef}>
+            <sphereGeometry args={[1.5, 32, 32]} />
+            <meshStandardMaterial
+              color="#050014"
+              emissive="#a855f7"
+              emissiveIntensity={0.6}
+              roughness={0.1}
+              wireframe={true}
+              transparent={true}
+              opacity={0.75}
+            />
+          </mesh>
+
+          {/* Tilted Accretion Disk Plane */}
+          <group rotation={[Math.PI / 3.4, 0.25, 0]}>
+            {/* Spinning Plasma Disk Mesh */}
+            <mesh ref={accretionRingRef}>
+              <ringGeometry args={[1.7, 3.8, 64]} />
+              <meshBasicMaterial
+                map={accretionTexture}
+                side={THREE.DoubleSide}
+                transparent={true}
+                opacity={0.9}
+              />
+            </mesh>
+
+            {/* Keplerian Differential Particle Stream */}
+            <points ref={accretionParticlesRef}>
+              <bufferGeometry>
+                <bufferAttribute
+                  attach="attributes-position"
+                  count={accretionParticles.count}
+                  array={accretionParticles.positions}
+                  itemSize={3}
+                />
+                <bufferAttribute
+                  attach="attributes-color"
+                  count={accretionParticles.count}
+                  array={accretionParticles.colors}
+                  itemSize={3}
+                />
+              </bufferGeometry>
+              <pointsMaterial
+                size={0.12}
+                vertexColors={true}
+                transparent={true}
+                opacity={0.95}
+                sizeAttenuation={true}
+              />
+            </points>
+          </group>
+        </group>
       )}
 
       {/* Null Geodesic Paths & Traveling Photons */}

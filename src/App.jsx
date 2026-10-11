@@ -25,11 +25,17 @@ export default function App() {
   // Gao-Jafferis-Wall Traversable Teleportation State
   const [teleportPacket, setTeleportPacket] = useState({ active: false, startTime: 0, phase: 'idle' });
 
+  // Camera Director Mode
+  const [cameraMode, setCameraMode] = useState('lab');
+
   const clockRef = useRef(0);
+  const controlsRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
   const oscRef = useRef(null);
   const osc2Ref = useRef(null);
   const gainRef = useRef(null);
+  const oscilloscopeCanvasRef = useRef(null);
 
   const telemetry = computeMetricTelemetry(
     entanglement,
@@ -42,6 +48,7 @@ export default function App() {
     teleportPacket
   );
 
+  // Initialize Web Audio synthesizer with AnalyserNode for the Oscilloscope
   useEffect(() => {
     if (!audioEnabled) {
       if (audioCtxRef.current) audioCtxRef.current.suspend();
@@ -54,6 +61,9 @@ export default function App() {
       const osc = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
+      const analyser = ctx.createAnalyser();
+
+      analyser.fftSize = 128;
 
       osc.type = 'sine';
       osc2.type = 'triangle';
@@ -63,12 +73,14 @@ export default function App() {
 
       osc.connect(gain);
       osc2.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(analyser);
+      analyser.connect(ctx.destination);
 
       osc.start();
       osc2.start();
 
       audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
       oscRef.current = osc;
       osc2Ref.current = osc2;
       gainRef.current = gain;
@@ -77,6 +89,7 @@ export default function App() {
     }
   }, [audioEnabled]);
 
+  // Audio modulation
   useEffect(() => {
     if (audioCtxRef.current && oscRef.current && osc2Ref.current && audioEnabled) {
       const ctx = audioCtxRef.current;
@@ -97,6 +110,58 @@ export default function App() {
     }
   }, [entanglement, blackHoleActive, erBridgeActive, syndromeErrors, audioEnabled]);
 
+  // Draw Live Audio Oscilloscope Canvas
+  useEffect(() => {
+    let animId;
+    const canvas = oscilloscopeCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const renderOscilloscope = () => {
+      animId = requestAnimationFrame(renderOscilloscope);
+
+      ctx.fillStyle = '#0b0f19';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (analyserRef.current && audioEnabled) {
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyserRef.current.getByteTimeDomainData(dataArray);
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#34d399';
+        ctx.beginPath();
+
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * canvas.height) / 2;
+
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+
+          x += sliceWidth;
+        }
+
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+      } else {
+        // Flat baseline when audio is disabled
+        ctx.lineWidth = 1.0;
+        ctx.strokeStyle = '#374151';
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+      }
+    };
+
+    renderOscilloscope();
+    return () => cancelAnimationFrame(animId);
+  }, [audioEnabled]);
+
   const triggerPerturbation = () => {
     setPerturbation({ active: true, startTime: clockRef.current });
 
@@ -108,7 +173,6 @@ export default function App() {
     }
   };
 
-  // Feature: Gao-Jafferis-Wall Traversable Teleportation with Arrival Docking
   const fireTeleportationProtocol = () => {
     if (!erBridgeActive) setErBridgeActive(true);
 
@@ -122,12 +186,10 @@ export default function App() {
       oscRef.current.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 2.4);
     }
 
-    // Phase 2: Arrived and docked at Mouth B (at 2.4s)
     setTimeout(() => {
       setTeleportPacket((prev) => ({ ...prev, phase: 'arrived' }));
     }, 2400);
 
-    // Phase 3: Complete cycle (at 5.5s)
     setTimeout(() => {
       setTeleportPacket({ active: false, startTime: 0, phase: 'idle' });
     }, 5500);
@@ -168,6 +230,7 @@ export default function App() {
         entanglementEntropy: entanglement,
         topologyMode: stateMode,
         boundaryAngleSubregion: boundaryAngle,
+        cameraPerspective: cameraMode,
         blackHoleActive,
         erBridgeActive,
         geodesicsActive,
@@ -243,8 +306,42 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
-            Traversable Wormhole Teleportation & HKLL Bulk Reconstruction
+            Quantum Gravity & Relativistic Visualizer
           </p>
+        </div>
+
+        {/* Feature: Cinematic Camera Director */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', letterSpacing: '0.5px' }}>
+            CINEMATIC CAMERA DIRECTOR
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+            {[
+              { id: 'lab', name: 'Laboratory (Default)' },
+              { id: 'horizon', name: 'Horizon Orbit' },
+              { id: 'throat', name: 'Wormhole Throat' },
+              { id: 'cft', name: 'CFT Top-Down' },
+              { id: 'orbit', name: '360° Cinematic Glide' }
+            ].map((cam) => (
+              <button
+                key={cam.id}
+                onClick={() => setCameraMode(cam.id)}
+                style={{
+                  padding: '7px 8px',
+                  fontSize: '11px',
+                  fontWeight: cameraMode === cam.id ? '600' : '400',
+                  borderRadius: '6px',
+                  border: cameraMode === cam.id ? '1px solid #38bdf8' : '1px solid #374151',
+                  backgroundColor: cameraMode === cam.id ? 'rgba(56, 189, 248, 0.2)' : '#0f172a',
+                  color: cameraMode === cam.id ? '#38bdf8' : '#9ca3af',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                {cam.name}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Feature Toggles: ER = EPR & Black Hole */}
@@ -288,7 +385,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Gao-Jafferis-Wall Traversable Teleportation Console */}
+        {/* Traversable Wormhole Teleportation Console */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#34d399' }}>
@@ -333,7 +430,28 @@ export default function App() {
           </button>
         </div>
 
-        {/* Ryu-Takayanagi & HKLL Reconstruction Controls */}
+        {/* Entanglement Entropy Slider */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: erBridgeActive ? '#22d3ee' : '#9ca3af' }}>
+              {erBridgeActive ? 'EPR ENTANGLEMENT FLUX (S)' : 'ENTANGLEMENT ENTROPY (S)'}
+            </span>
+            <span style={{ fontSize: '13px', color: erBridgeActive ? '#22d3ee' : '#38bdf8', fontFamily: 'monospace' }}>
+              {entanglement.toFixed(2)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min="0.05"
+            max="1"
+            step="0.01"
+            value={entanglement}
+            onChange={(e) => setEntanglement(parseFloat(e.target.value))}
+            style={{ width: '100%', cursor: 'pointer', accentColor: erBridgeActive ? '#22d3ee' : '#38bdf8' }}
+          />
+        </div>
+
+        {/* Ryu-Takayanagi Minimal Surface Controls */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#10b981' }}>
@@ -374,28 +492,23 @@ export default function App() {
           )}
         </div>
 
-        {/* Entanglement Entropy Slider */}
-        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: erBridgeActive ? '#22d3ee' : '#9ca3af' }}>
-              {erBridgeActive ? 'EPR ENTANGLEMENT FLUX (S)' : 'ENTANGLEMENT ENTROPY (S)'}
+        {/* Live Audio Oscilloscope Canvas */}
+        <div style={{ backgroundColor: '#111827', padding: '10px 12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: '#9ca3af' }}>
+            <span style={{ fontWeight: 'bold', color: audioEnabled ? '#34d399' : '#6b7280' }}>
+              {audioEnabled ? 'ACOUSTIC OSCILLOSCOPE (ACTIVE)' : 'ACOUSTIC OSCILLOSCOPE (OFFLINE)'}
             </span>
-            <span style={{ fontSize: '13px', color: erBridgeActive ? '#22d3ee' : '#38bdf8', fontFamily: 'monospace' }}>
-              {entanglement.toFixed(2)}
-            </span>
+            <span>Web Audio API</span>
           </div>
-          <input
-            type="range"
-            min="0.05"
-            max="1"
-            step="0.01"
-            value={entanglement}
-            onChange={(e) => setEntanglement(parseFloat(e.target.value))}
-            style={{ width: '100%', cursor: 'pointer', accentColor: erBridgeActive ? '#22d3ee' : '#38bdf8' }}
+          <canvas
+            ref={oscilloscopeCanvasRef}
+            width={380}
+            height={36}
+            style={{ width: '100%', height: '36px', borderRadius: '4px', display: 'block' }}
           />
         </div>
 
-        {/* Quantum Error Correction Console */}
+        {/* QEC Console */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#f59e0b' }}>
@@ -440,7 +553,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Geodesics & Optical Shaders */}
+        {/* Optical & Geodesic Controls */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
             onClick={() => setGeodesicsActive(!geodesicsActive)}
@@ -545,7 +658,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Holographic & HKLL Telemetry Readouts */}
+        {/* Holographic & Relativistic Telemetry Readouts */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
             HOLOGRAPHIC & HKLL BULK TELEMETRY
@@ -614,10 +727,12 @@ export default function App() {
             boundaryAngle={boundaryAngle}
             teleportPacket={teleportPacket}
             clockRef={clockRef}
+            cameraMode={cameraMode}
+            controlsRef={controlsRef}
             triggerPerturbation={triggerPerturbation}
           />
           
-          <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+          <OrbitControls ref={controlsRef} enablePan={true} enableZoom={true} enableRotate={true} />
 
           {cinematicBloom && (
             <EffectComposer multisampling={0}>
