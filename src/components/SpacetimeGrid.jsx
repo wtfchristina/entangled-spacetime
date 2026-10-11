@@ -7,13 +7,15 @@ export default function SpacetimeGrid({
   entanglement,
   stateMode,
   perturbation,
+  blackHoleActive,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
   const linesRef = useRef();
   const groupRef = useRef();
+  const horizonRef = useRef();
 
-  // 1. Build Lattice Topology
+  // 1. Build Base Lattice Topology
   const { basePositions, indices, lineColorsTemplate } = useMemo(() => {
     const pos = [];
     const ind = [];
@@ -41,12 +43,11 @@ export default function SpacetimeGrid({
       }
     }
 
-    // Default neutral color buffer for lines (RGB)
     const lineColors = new Float32Array(pos.length);
     for (let i = 0; i < lineColors.length; i += 3) {
-      lineColors[i] = 0.2;     // R
-      lineColors[i + 1] = 0.6; // G
-      lineColors[i + 2] = 1.0; // B
+      lineColors[i] = 0.2;
+      lineColors[i + 1] = 0.6;
+      lineColors[i + 2] = 1.0;
     }
 
     return {
@@ -59,15 +60,21 @@ export default function SpacetimeGrid({
   const dynamicPositions = useMemo(() => new Float32Array(basePositions), [basePositions]);
   const dynamicColors = useMemo(() => new Float32Array(lineColorsTemplate), [lineColorsTemplate]);
 
-  // Temporary color objects for interpolation without garbage collection
   const coolColor = useMemo(() => new THREE.Color('#38bdf8'), []);
   const hotColor = useMemo(() => new THREE.Color('#f43f5e'), []);
+  const horizonColor = useMemo(() => new THREE.Color('#a855f7'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
-  // 2. Render Loop with Curvature Heatmap & Wave Ripple
+  // 2. 60 FPS Physics Simulation Loop
   useFrame((state, delta) => {
     groupRef.current.rotation.y += delta * 0.12;
     groupRef.current.rotation.x += delta * 0.04;
+
+    // Pulse event horizon if active
+    if (horizonRef.current && blackHoleActive) {
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.04;
+      horizonRef.current.scale.set(pulse, pulse, pulse);
+    }
 
     const currentPosArray = pointsRef.current.geometry.attributes.position.array;
     const lineColorsArray = linesRef.current.geometry.attributes.color.array;
@@ -87,16 +94,21 @@ export default function SpacetimeGrid({
         time,
         entanglement,
         stateMode,
-        perturbation
+        perturbation,
+        blackHoleActive
       );
 
       currentPosArray[i] = node.x;
       currentPosArray[i + 1] = node.y;
       currentPosArray[i + 2] = node.z;
 
-      // Layer 1 Curvature Heatmap: Map strain directly to color (Cyan -> Magenta/Red)
+      // Color mapping: Cyan -> Magenta, with Purple shift in extreme gravity
       const strainFactor = Math.min(1.0, node.strain * 2.2 + entanglement * 0.35);
-      tempColor.copy(coolColor).lerp(hotColor, strainFactor);
+      if (blackHoleActive && baseDist < 2.0) {
+        tempColor.copy(hotColor).lerp(horizonColor, 0.6);
+      } else {
+        tempColor.copy(coolColor).lerp(hotColor, strainFactor);
+      }
 
       lineColorsArray[i] = tempColor.r;
       lineColorsArray[i + 1] = tempColor.g;
@@ -116,6 +128,22 @@ export default function SpacetimeGrid({
         triggerPerturbation();
       }}
     >
+      {/* Event Horizon Geometry */}
+      {blackHoleActive && (
+        <mesh ref={horizonRef}>
+          <sphereGeometry args={[1.5, 32, 32]} />
+          <meshStandardMaterial
+            color="#050014"
+            emissive="#a855f7"
+            emissiveIntensity={0.6}
+            roughness={0.1}
+            wireframe={true}
+            transparent={true}
+            opacity={0.75}
+          />
+        </mesh>
+      )}
+
       {/* Qubit Nodes */}
       <points ref={pointsRef}>
         <bufferGeometry>
@@ -135,7 +163,7 @@ export default function SpacetimeGrid({
         />
       </points>
 
-      {/* Dynamic Entanglement Bonds with Vertex Heatmap */}
+      {/* Dynamic Entanglement Bonds with Vertex Color Stress Heatmap */}
       <lineSegments ref={linesRef}>
         <bufferGeometry>
           <bufferAttribute
