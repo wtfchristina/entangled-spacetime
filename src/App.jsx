@@ -34,6 +34,7 @@ export default function App() {
 
   const clockRef = useRef(0);
   const controlsRef = useRef(null);
+  const webglCanvasRef = useRef(null);
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const oscRef = useRef(null);
@@ -211,8 +212,9 @@ export default function App() {
     setSyndromeErrors([]);
   };
 
+  // Fixed: Accurately targets the 3D WebGL Canvas rather than the 2D audio oscilloscope
   const captureSnapshot = () => {
-    const canvasElement = document.querySelector('canvas');
+    const canvasElement = webglCanvasRef.current || document.querySelector('#webgl-viewport canvas');
     if (!canvasElement) return;
 
     const dataUrl = canvasElement.toDataURL('image/png');
@@ -314,7 +316,7 @@ export default function App() {
           </p>
         </div>
 
-        {/* Feature: Cinematic Camera Director */}
+        {/* Cinematic Camera Director */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', letterSpacing: '0.5px' }}>
             CINEMATIC CAMERA DIRECTOR
@@ -348,7 +350,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Feature: Multi-Ray Geodesic Bundle & Lensing Controls */}
+        {/* Multi-Ray Geodesic Bundle & Lensing Controls */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#facc15' }}>
@@ -373,7 +375,6 @@ export default function App() {
 
           {geodesicsActive && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* Beam Topology Toggle */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                 <button
                   onClick={() => setBeamMode('curtain')}
@@ -407,7 +408,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Ray Count Slider */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
                   <span>Ray Bundle Density</span>
@@ -424,7 +424,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Impact Parameter Slider */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
                   <span>Impact Parameter (b)</span>
@@ -764,9 +763,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3D Canvas Viewport */}
-      <div style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
+      {/* 3D Canvas Viewport Container with explicit ID and WebGL hook */}
+      <div id="webgl-viewport" style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
         <Canvas
+          onCreated={({ gl }) => {
+            webglCanvasRef.current = gl.domElement;
+          }}
           camera={{ position: [0, 4, 13], fov: 45 }}
           gl={{
             preserveDrawingBuffer: true,
