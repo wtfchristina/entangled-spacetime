@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+import * as THREE from 'three';
 import SpacetimeGrid from './components/SpacetimeGrid';
 import { computeMetricTelemetry } from './logic/tensorCalculations';
 
@@ -14,6 +16,7 @@ export default function App() {
   const [geodesicsActive, setGeodesicsActive] = useState(false);
   const [impactParamY, setImpactParamY] = useState(1.6);
   const [syndromeErrors, setSyndromeErrors] = useState([]);
+  const [cinematicBloom, setCinematicBloom] = useState(true);
 
   const clockRef = useRef(0);
   const audioCtxRef = useRef(null);
@@ -74,7 +77,6 @@ export default function App() {
       if (erBridgeActive) basePitch = 110 + entanglement * 75;
       if (blackHoleActive && !erBridgeActive) basePitch = 42;
 
-      // When errors exist, add dissonance
       const detuneFactor = syndromeErrors.length * 8;
 
       oscRef.current.frequency.exponentialRampToValueAtTime(
@@ -99,7 +101,6 @@ export default function App() {
     }
   };
 
-  // QEC: Inject 5 random Pauli defects
   const injectPauliNoise = () => {
     const totalQubits = 125;
     const newErrors = new Set(syndromeErrors);
@@ -112,10 +113,15 @@ export default function App() {
     setSyndromeErrors(Array.from(newErrors));
   };
 
-  // QEC: Run Minimum-Weight Syndrome Decoder
   const runSyndromeDecoder = () => {
     setSyndromeErrors([]);
   };
+
+  // Relativistic optical chromatic offset vector based on gravitational distortion
+  const chromaticOffset = new THREE.Vector2(
+    blackHoleActive ? 0.0035 : 0.0012 + entanglement * 0.001,
+    blackHoleActive ? 0.0035 : 0.0012 + entanglement * 0.001
+  );
 
   return (
     <div
@@ -150,7 +156,7 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
-            Fault-Tolerant QEC & Holographic Spacetime Simulator
+            Cinematic Relativistic Shaders & Quantum Gravity Simulator
           </p>
         </div>
 
@@ -193,6 +199,33 @@ export default function App() {
           >
             {blackHoleActive ? 'Collapse: Active' : 'Form Event Horizon'}
           </button>
+        </div>
+
+        {/* Cinematic Shaders & Optical Pipeline */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ec4899' }}>CINEMATIC SHADER PIPELINE</div>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                Unreal Bloom, Relativistic Lensing & Chromatic Shift
+              </div>
+            </div>
+            <button
+              onClick={() => setCinematicBloom(!cinematicBloom)}
+              style={{
+                padding: '5px 10px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                backgroundColor: cinematicBloom ? '#db2777' : '#1f2937',
+                color: '#fff',
+                border: cinematicBloom ? '1px solid #f472b6' : '1px solid #374151',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              {cinematicBloom ? 'Shaders ON' : 'Shaders OFF'}
+            </button>
+          </div>
         </div>
 
         {/* Quantum Error Correction Console */}
@@ -372,7 +405,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Telemetry Dashboard with QEC Readouts */}
+        {/* Telemetry Dashboard */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
             HOLOGRAPHIC & QEC TELEMETRY
@@ -429,15 +462,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3D Canvas Viewport */}
+      {/* 3D Canvas Viewport with Cinematic Shader Pipeline */}
       <div style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
         <Canvas
           camera={{ position: [0, 4, 13], fov: 45 }}
+          gl={{ antialias: false, toneMapping: THREE.ACESFilmicToneMapping }}
           onPointerDown={() => triggerPerturbation()}
         >
-          <color attach="background" args={['#030712']} />
-          <ambientLight intensity={0.4} />
-          <pointLight position={[10, 10, 10]} intensity={1.8} color="#38bdf8" />
+          <color attach="background" args={['#02040a']} />
+          <ambientLight intensity={0.25} />
+          <pointLight position={[10, 10, 10]} intensity={2.2} color="#38bdf8" />
+          
           <SpacetimeGrid
             entanglement={entanglement}
             stateMode={stateMode}
@@ -449,7 +484,30 @@ export default function App() {
             syndromeErrors={syndromeErrors}
             triggerPerturbation={triggerPerturbation}
           />
+          
           <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+
+          {/* Post-Processing Cinematic Stack */}
+          {cinematicBloom && (
+            <EffectComposer multisampling={0}>
+              <Bloom
+                intensity={1.3}
+                luminanceThreshold={0.15}
+                luminanceSmoothing={0.8}
+                mipmapBlur={true}
+              />
+              <ChromaticAberration
+                offset={chromaticOffset}
+                radialModulation={true}
+                modulationOffset={0.3}
+              />
+              <Vignette
+                eskil={false}
+                offset={0.15}
+                darkness={1.1}
+              />
+            </EffectComposer>
+          )}
         </Canvas>
       </div>
     </div>
