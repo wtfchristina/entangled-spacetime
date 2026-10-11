@@ -1,10 +1,6 @@
 /**
  * tensorCalculations.js
- * Comprehensive physics and QEC engine:
- * - Holographic quantum error-correcting code (HaPPY / Surface code proxy)
- * - Topological syndrome detection & minimum-weight matching recovery
- * - AdS/CFT geometric deformation & ER = EPR Einstein-Rosen bridge
- * - Schwarzschild event horizon collapse dynamics & geodesic ray tracing
+ * Holographic Duality, Ryu-Takayanagi Minimal Surface, and QEC Engine
  */
 
 export function calculateNodeState(
@@ -27,7 +23,6 @@ export function calculateNodeState(
   let waveAmp = 0.12 * entanglement;
   let freq = 2.8;
 
-  // Check if this specific node has an active Pauli defect
   const hasError = syndromeErrors.includes(nodeIndex);
 
   switch (stateMode) {
@@ -56,7 +51,6 @@ export function calculateNodeState(
     }
   }
 
-  // Base quantum uncertainty oscillations
   const phase = baseDist * 2.2;
   const jitterX = Math.sin(time * freq + phase) * waveAmp;
   const jitterY = Math.cos(time * (freq * 0.85) - phase) * waveAmp;
@@ -66,14 +60,12 @@ export function calculateNodeState(
   let finalY = baseY * warpFactor + jitterY;
   let finalZ = baseZ * warpFactor + jitterZ;
 
-  // Pauli defect introduces high-frequency localized decoherence vibration
   if (hasError) {
     finalX += Math.sin(time * 18 + nodeIndex) * 0.22;
     finalY += Math.cos(time * 18 + nodeIndex) * 0.22;
     finalZ += Math.sin(time * 22 + nodeIndex) * 0.22;
   }
 
-  // ER = EPR Bipartite Separation
   if (erBridgeActive) {
     const separation = 4.8;
     const sideSign = baseX >= 0 ? 1 : -1;
@@ -85,7 +77,6 @@ export function calculateNodeState(
     finalX -= sideSign * pullTowardsThroat;
   }
 
-  // Black Hole Collapse (when ER bridge is off)
   if (blackHoleActive && !erBridgeActive) {
     const rSchwarzschild = 1.8;
     const currentR = Math.sqrt(finalX * finalX + finalY * finalY + finalZ * finalZ);
@@ -98,7 +89,6 @@ export function calculateNodeState(
     }
   }
 
-  // Gravitational Wave Pulse Propagation
   if (perturbation && perturbation.active) {
     const elapsed = time - perturbation.startTime;
     const waveSpeed = 4.0;
@@ -117,6 +107,49 @@ export function calculateNodeState(
   const strain = Math.abs(currentDist - baseDist) / (baseDist + 0.001);
 
   return { x: finalX, y: finalY, z: finalZ, strain, hasError };
+}
+
+/**
+ * Calculates the Ryu-Takayanagi minimal bulk surface gamma_A
+ * dipping into the bulk AdS interior anchored to boundary subregion A
+ */
+export function calculateRyuTakayanagiSurface(boundaryAngle, entanglement) {
+  const steps = 40;
+  const radius = 4.4; // Boundary sphere radius
+  const maxDip = (boundaryAngle / Math.PI) * (2.8 * (1 - entanglement * 0.35));
+
+  const vertices = [];
+  const halfAngle = boundaryAngle / 2;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * 2 - 1; // -1 to 1
+    const phi = t * halfAngle;
+
+    // Hyperbolic geodesic curve dipping into bulk origin (z-depth)
+    const dip = (1 - t * t) * maxDip;
+    const currentR = radius - dip;
+
+    const x = Math.sin(phi) * currentR;
+    const y = Math.cos(phi) * currentR;
+    const z = 0;
+
+    vertices.push(x, y, z);
+  }
+
+  // Calculate geodesic length (proxy for minimal surface area)
+  let geodesicArea = 0;
+  for (let i = 0; i < vertices.length - 3; i += 3) {
+    const dx = vertices[i + 3] - vertices[i];
+    const dy = vertices[i + 4] - vertices[i + 1];
+    const dz = vertices[i + 5] - vertices[i + 2];
+    geodesicArea += Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }
+
+  return {
+    vertices: new Float32Array(vertices),
+    minimalArea: geodesicArea.toFixed(2),
+    holographicEntropy: (geodesicArea / 4).toFixed(3) // S = Area / 4G
+  };
 }
 
 export function generateWormholeGeometry(entanglement, time) {
@@ -216,16 +249,14 @@ export function traceGeodesicRays(impactParamY, entanglement, blackHoleActive, e
   });
 }
 
-/**
- * Computes QEC stabilizer metrics and relativistic telemetry
- */
 export function computeMetricTelemetry(
   entanglement,
   stateMode,
   blackHoleActive,
   erBridgeActive,
   impactParamY,
-  syndromeErrors = []
+  syndromeErrors = [],
+  boundaryAngle = 1.8
 ) {
   let g00Val = -(1 - Math.min(0.85, entanglement * 0.7));
   let grrVal = 1 / (1 - Math.min(0.85, entanglement * 0.65) + 0.001);
@@ -250,12 +281,12 @@ export function computeMetricTelemetry(
   const deflectionAngleRad = ((4 * massProxy) / safeB).toFixed(2);
   const throatRadius = erBridgeActive ? (Math.sqrt(entanglement) * 1.35).toFixed(2) : '0.00';
 
-  // Quantum Error Correction (QEC) fault-tolerant calculations
   const totalQubits = 125;
   const numErrors = syndromeErrors.length;
   const physicalErrorRate = ((numErrors / totalQubits) * 100).toFixed(1);
-  // Logical fidelity models exponential decay with physical error syndrome weight
   const logicalFidelity = Math.max(0.01, Math.exp(-numErrors * 0.12)).toFixed(3);
+
+  const rt = calculateRyuTakayanagiSurface(boundaryAngle, entanglement);
 
   return {
     g00: g00Val.toFixed(3),
@@ -266,6 +297,8 @@ export function computeMetricTelemetry(
     throatRadius: `${throatRadius} L_P`,
     physicalErrorRate: `${physicalErrorRate}%`,
     logicalFidelity,
-    activeSyndromes: numErrors
+    activeSyndromes: numErrors,
+    rtArea: rt.minimalArea,
+    holographicEntropy: rt.holographicEntropy
   };
 }

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import {
   calculateNodeState,
   generateWormholeGeometry,
+  calculateRyuTakayanagiSurface,
   traceGeodesicRays
 } from '../logic/tensorCalculations';
 
@@ -16,6 +17,8 @@ export default function SpacetimeGrid({
   geodesicsActive,
   impactParamY,
   syndromeErrors,
+  rtActive,
+  boundaryAngle,
   triggerPerturbation
 }) {
   const pointsRef = useRef();
@@ -23,6 +26,7 @@ export default function SpacetimeGrid({
   const groupRef = useRef();
   const horizonRef = useRef();
   const wormholeRef = useRef();
+  const rtSurfaceRef = useRef();
   const photonMarkersRef = useRef([]);
 
   // 1. Build Base Lattice Topology
@@ -60,9 +64,9 @@ export default function SpacetimeGrid({
       lineColors[i + 1] = 0.6;
       lineColors[i + 2] = 1.0;
 
-      nodeColors[i] = 0.58;     // R (Default Cyan/Blue)
-      nodeColors[i + 1] = 0.77; // G
-      nodeColors[i + 2] = 0.99; // B
+      nodeColors[i] = 0.58;
+      nodeColors[i + 1] = 0.77;
+      nodeColors[i + 2] = 0.99;
     }
 
     return {
@@ -82,15 +86,20 @@ export default function SpacetimeGrid({
     return traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive);
   }, [geodesicsActive, impactParamY, entanglement, blackHoleActive, erBridgeActive]);
 
+  const rtSurface = useMemo(() => {
+    if (!rtActive) return null;
+    return calculateRyuTakayanagiSurface(boundaryAngle, entanglement);
+  }, [rtActive, boundaryAngle, entanglement]);
+
   const coolColor = useMemo(() => new THREE.Color('#38bdf8'), []);
   const hotColor = useMemo(() => new THREE.Color('#f43f5e'), []);
   const horizonColor = useMemo(() => new THREE.Color('#a855f7'), []);
   const wormholeColor = useMemo(() => new THREE.Color('#06b6d4'), []);
-  const errorColor = useMemo(() => new THREE.Color('#f59e0b'), []); // High-alert amber for Pauli faults
+  const errorColor = useMemo(() => new THREE.Color('#f59e0b'), []);
   const normalNodeColor = useMemo(() => new THREE.Color('#93c5fd'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
-  // 2. 60 FPS Render Loop
+  // 2. 60 FPS Physics Simulation Loop
   useFrame((state, delta) => {
     groupRef.current.rotation.y += delta * 0.10;
     groupRef.current.rotation.x += delta * 0.03;
@@ -155,7 +164,6 @@ export default function SpacetimeGrid({
       currentPosArray[i + 1] = node.y;
       currentPosArray[i + 2] = node.z;
 
-      // QEC Syndrome Node Coloring: Error qubits flash amber/gold
       if (node.hasError) {
         const flash = 0.5 + Math.sin(time * 12 + nodeIndex) * 0.5;
         tempColor.copy(errorColor).lerp(hotColor, flash);
@@ -168,7 +176,6 @@ export default function SpacetimeGrid({
         nodeColorsArray[i + 2] = normalNodeColor.b;
       }
 
-      // Bond Stress Heatmap
       const strainFactor = Math.min(1.0, node.strain * 2.2 + entanglement * 0.35);
 
       if (erBridgeActive) {
@@ -200,6 +207,32 @@ export default function SpacetimeGrid({
         triggerPerturbation();
       }}
     >
+      {/* 2D Holographic CFT Boundary Sphere */}
+      <mesh>
+        <sphereGeometry args={[4.5, 32, 32]} />
+        <meshBasicMaterial
+          color="#1e293b"
+          wireframe={true}
+          transparent={true}
+          opacity={0.12}
+        />
+      </mesh>
+
+      {/* Ryu-Takayanagi Minimal Surface (gamma_A) Geodesic */}
+      {rtActive && rtSurface && (
+        <line ref={rtSurfaceRef}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={rtSurface.vertices.length / 3}
+              array={rtSurface.vertices}
+              itemSize={3}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial color="#10b981" linewidth={3} />
+        </line>
+      )}
+
       {/* ER = EPR Einstein-Rosen Wormhole Throat Mesh */}
       {erBridgeActive && (
         <lineSegments ref={wormholeRef}>
@@ -263,7 +296,7 @@ export default function SpacetimeGrid({
           </group>
         ))}
 
-      {/* Qubit Nodes with Vertex-Colored Syndrome Faults */}
+      {/* Qubit Nodes */}
       <points ref={pointsRef}>
         <bufferGeometry>
           <bufferAttribute
