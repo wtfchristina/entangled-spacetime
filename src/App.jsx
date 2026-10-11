@@ -23,6 +23,7 @@ export default function App() {
   const oscRef = useRef(null);
   const osc2Ref = useRef(null);
   const gainRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const telemetry = computeMetricTelemetry(
     entanglement,
@@ -69,7 +70,7 @@ export default function App() {
     }
   }, [audioEnabled]);
 
-  // Audio modulation with defect noise dissonance
+  // Audio modulation
   useEffect(() => {
     if (audioCtxRef.current && oscRef.current && osc2Ref.current && audioEnabled) {
       const ctx = audioCtxRef.current;
@@ -117,7 +118,53 @@ export default function App() {
     setSyndromeErrors([]);
   };
 
-  // Relativistic optical chromatic offset vector based on gravitational distortion
+  // Feature: High-Resolution Snapshot Capture
+  const captureSnapshot = () => {
+    const canvasElement = document.querySelector('canvas');
+    if (!canvasElement) return;
+
+    const dataUrl = canvasElement.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `entangled-spacetime-${Date.now()}.png`;
+    link.href = dataUrl;
+    link.click();
+  };
+
+  // Feature: Scientific Telemetry JSON Export
+  const exportTelemetryData = () => {
+    const payload = {
+      project: 'Entangled Spacetime Visualizer',
+      timestamp: new Date().toISOString(),
+      parameters: {
+        entanglementEntropy: entanglement,
+        topologyMode: stateMode,
+        blackHoleActive,
+        erBridgeActive,
+        geodesicsActive,
+        impactParameter: impactParamY
+      },
+      relativityTelemetry: {
+        ricciCurvatureScalar: telemetry.ricciScalar,
+        g_00_temporal: telemetry.g00,
+        g_rr_radial: telemetry.grr,
+        einsteinDeflectionAngle: telemetry.deflectionAngle,
+        wormholeThroatRadius: telemetry.throatRadius
+      },
+      quantumErrorCorrection: {
+        code: '[[125, 1, 5]]',
+        activeSyndromes: telemetry.activeSyndromes,
+        logicalFidelity: telemetry.logicalFidelity,
+        physicalErrorRate: telemetry.physicalErrorRate
+      }
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
+    const link = document.createElement('a');
+    link.download = `spacetime-telemetry-${Date.now()}.json`;
+    link.href = dataStr;
+    link.click();
+  };
+
   const chromaticOffset = new THREE.Vector2(
     blackHoleActive ? 0.0035 : 0.0012 + entanglement * 0.001,
     blackHoleActive ? 0.0035 : 0.0012 + entanglement * 0.001
@@ -201,13 +248,13 @@ export default function App() {
           </button>
         </div>
 
-        {/* Cinematic Shaders & Optical Pipeline */}
+        {/* Cinematic Shaders Toggle */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ec4899' }}>CINEMATIC SHADER PIPELINE</div>
               <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                Unreal Bloom, Relativistic Lensing & Chromatic Shift
+                Unreal Bloom & Relativistic Lensing
               </div>
             </div>
             <button
@@ -405,6 +452,41 @@ export default function App() {
           </button>
         </div>
 
+        {/* Feature: Export & Snapshot Tools */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <button
+            onClick={captureSnapshot}
+            style={{
+              padding: '9px',
+              backgroundColor: '#1e1b4b',
+              color: '#c7d2fe',
+              border: '1px solid #4f46e5',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: '600'
+            }}
+          >
+            📸 Capture Snapshot (PNG)
+          </button>
+
+          <button
+            onClick={exportTelemetryData}
+            style={{
+              padding: '9px',
+              backgroundColor: '#1e1b4b',
+              color: '#c7d2fe',
+              border: '1px solid #4f46e5',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: '600'
+            }}
+          >
+            📊 Export Data (JSON)
+          </button>
+        </div>
+
         {/* Telemetry Dashboard */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
@@ -462,11 +544,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3D Canvas Viewport with Cinematic Shader Pipeline */}
+      {/* 3D Canvas Viewport */}
       <div style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
         <Canvas
           camera={{ position: [0, 4, 13], fov: 45 }}
-          gl={{ antialias: false, toneMapping: THREE.ACESFilmicToneMapping }}
+          gl={{
+            preserveDrawingBuffer: true,
+            antialias: false,
+            toneMapping: THREE.ACESFilmicToneMapping
+          }}
           onPointerDown={() => triggerPerturbation()}
         >
           <color attach="background" args={['#02040a']} />
@@ -487,7 +573,6 @@ export default function App() {
           
           <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
 
-          {/* Post-Processing Cinematic Stack */}
           {cinematicBloom && (
             <EffectComposer multisampling={0}>
               <Bloom
