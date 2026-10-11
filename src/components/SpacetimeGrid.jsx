@@ -1,13 +1,18 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { calculateNodeState, traceGeodesicRays } from '../logic/tensorCalculations';
+import {
+  calculateNodeState,
+  generateWormholeGeometry,
+  traceGeodesicRays
+} from '../logic/tensorCalculations';
 
 export default function SpacetimeGrid({
   entanglement,
   stateMode,
   perturbation,
   blackHoleActive,
+  erBridgeActive,
   geodesicsActive,
   impactParamY,
   triggerPerturbation
@@ -16,6 +21,7 @@ export default function SpacetimeGrid({
   const linesRef = useRef();
   const groupRef = useRef();
   const horizonRef = useRef();
+  const wormholeRef = useRef();
   const photonMarkersRef = useRef([]);
 
   // 1. Build Base Lattice Topology
@@ -66,28 +72,39 @@ export default function SpacetimeGrid({
   // Compute curved null geodesic paths
   const geodesicPaths = useMemo(() => {
     if (!geodesicsActive) return [];
-    return traceGeodesicRays(impactParamY, entanglement, blackHoleActive);
-  }, [geodesicsActive, impactParamY, entanglement, blackHoleActive]);
+    return traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive);
+  }, [geodesicsActive, impactParamY, entanglement, blackHoleActive, erBridgeActive]);
 
   const coolColor = useMemo(() => new THREE.Color('#38bdf8'), []);
   const hotColor = useMemo(() => new THREE.Color('#f43f5e'), []);
   const horizonColor = useMemo(() => new THREE.Color('#a855f7'), []);
+  const wormholeColor = useMemo(() => new THREE.Color('#06b6d4'), []);
   const tempColor = useMemo(() => new THREE.Color(), []);
 
   // 2. 60 FPS Render Loop
   useFrame((state, delta) => {
-    groupRef.current.rotation.y += delta * 0.12;
-    groupRef.current.rotation.x += delta * 0.04;
+    groupRef.current.rotation.y += delta * 0.10;
+    groupRef.current.rotation.x += delta * 0.03;
 
+    const time = state.clock.elapsedTime;
+
+    // Pulse event horizon if active
     if (horizonRef.current && blackHoleActive) {
-      const pulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.04;
+      const pulse = 1 + Math.sin(time * 4) * 0.04;
       horizonRef.current.scale.set(pulse, pulse, pulse);
     }
 
-    // Animate photon particles along the computed trajectories
+    // Dynamic Wormhole Geometry Update
+    if (wormholeRef.current && erBridgeActive) {
+      const wh = generateWormholeGeometry(entanglement, time);
+      wormholeRef.current.geometry.attributes.position.array.set(wh.vertices);
+      wormholeRef.current.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Animate photon particles along geodesics
     if (geodesicsActive && geodesicPaths.length > 0) {
       const speed = 0.8;
-      const progress = (state.clock.elapsedTime * speed) % 1;
+      const progress = (time * speed) % 1;
 
       geodesicPaths.forEach((pathPoints, idx) => {
         const marker = photonMarkersRef.current[idx];
@@ -102,9 +119,9 @@ export default function SpacetimeGrid({
       });
     }
 
+    // Update Lattice Vertices & Color Stress
     const currentPosArray = pointsRef.current.geometry.attributes.position.array;
     const lineColorsArray = linesRef.current.geometry.attributes.color.array;
-    const time = state.clock.elapsedTime;
 
     for (let i = 0; i < basePositions.length; i += 3) {
       const bx = basePositions[i];
@@ -121,7 +138,8 @@ export default function SpacetimeGrid({
         entanglement,
         stateMode,
         perturbation,
-        blackHoleActive
+        blackHoleActive,
+        erBridgeActive
       );
 
       currentPosArray[i] = node.x;
@@ -129,7 +147,10 @@ export default function SpacetimeGrid({
       currentPosArray[i + 2] = node.z;
 
       const strainFactor = Math.min(1.0, node.strain * 2.2 + entanglement * 0.35);
-      if (blackHoleActive && baseDist < 2.0) {
+
+      if (erBridgeActive) {
+        tempColor.copy(coolColor).lerp(wormholeColor, 0.7);
+      } else if (blackHoleActive && baseDist < 2.0) {
         tempColor.copy(hotColor).lerp(horizonColor, 0.6);
       } else {
         tempColor.copy(coolColor).lerp(hotColor, strainFactor);
@@ -145,6 +166,9 @@ export default function SpacetimeGrid({
     linesRef.current.geometry.attributes.color.needsUpdate = true;
   });
 
+  // Base wormhole template for initial geometry buffer
+  const initialWormhole = useMemo(() => generateWormholeGeometry(0.5, 0), []);
+
   return (
     <group
       ref={groupRef}
@@ -153,8 +177,33 @@ export default function SpacetimeGrid({
         triggerPerturbation();
       }}
     >
-      {/* Event Horizon Geometry */}
-      {blackHoleActive && (
+      {/* ER = EPR Einstein-Rosen Wormhole Throat Mesh */}
+      {erBridgeActive && (
+        <lineSegments ref={wormholeRef}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={initialWormhole.vertices.length / 3}
+              array={initialWormhole.vertices}
+              itemSize={3}
+            />
+            <bufferAttribute
+              attach="index"
+              count={initialWormhole.indices.length}
+              array={initialWormhole.indices}
+              itemSize={1}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial
+            color="#06b6d4"
+            transparent
+            opacity={0.35 + entanglement * 0.55}
+          />
+        </lineSegments>
+      )}
+
+      {/* Black Hole Event Horizon */}
+      {blackHoleActive && !erBridgeActive && (
         <mesh ref={horizonRef}>
           <sphereGeometry args={[1.5, 32, 32]} />
           <meshStandardMaterial

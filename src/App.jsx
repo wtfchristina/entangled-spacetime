@@ -9,6 +9,7 @@ export default function App() {
   const [stateMode, setStateMode] = useState('standard');
   const [perturbation, setPerturbation] = useState({ active: false, startTime: 0 });
   const [blackHoleActive, setBlackHoleActive] = useState(false);
+  const [erBridgeActive, setErBridgeActive] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [geodesicsActive, setGeodesicsActive] = useState(false);
   const [impactParamY, setImpactParamY] = useState(1.6);
@@ -16,10 +17,18 @@ export default function App() {
   const clockRef = useRef(0);
   const audioCtxRef = useRef(null);
   const oscRef = useRef(null);
+  const osc2Ref = useRef(null);
   const gainRef = useRef(null);
 
-  const telemetry = computeMetricTelemetry(entanglement, stateMode, blackHoleActive, impactParamY);
+  const telemetry = computeMetricTelemetry(
+    entanglement,
+    stateMode,
+    blackHoleActive,
+    erBridgeActive,
+    impactParamY
+  );
 
+  // Initialize Web Audio synthesizer with dual harmonic oscillators
   useEffect(() => {
     if (!audioEnabled) {
       if (audioCtxRef.current) audioCtxRef.current.suspend();
@@ -30,34 +39,49 @@ export default function App() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioContext();
       const osc = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.type = 'sine';
+      osc2.type = 'triangle';
       osc.frequency.setValueAtTime(65, ctx.currentTime);
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      osc2.frequency.setValueAtTime(130, ctx.currentTime);
+      gain.gain.setValueAtTime(0.07, ctx.currentTime);
 
       osc.connect(gain);
+      osc2.connect(gain);
       gain.connect(ctx.destination);
+
       osc.start();
+      osc2.start();
 
       audioCtxRef.current = ctx;
       oscRef.current = osc;
+      osc2Ref.current = osc2;
       gainRef.current = gain;
     } else {
       audioCtxRef.current.resume();
     }
   }, [audioEnabled]);
 
+  // Modulate synth frequencies based on ER wormhole throat & curvature
   useEffect(() => {
-    if (audioCtxRef.current && oscRef.current && audioEnabled) {
+    if (audioCtxRef.current && oscRef.current && osc2Ref.current && audioEnabled) {
       const ctx = audioCtxRef.current;
-      const basePitch = blackHoleActive ? 42 : 55 + entanglement * 95;
+      let basePitch = 55 + entanglement * 95;
+      if (erBridgeActive) basePitch = 110 + entanglement * 75; // Resonant higher harmonic for wormhole
+      if (blackHoleActive && !erBridgeActive) basePitch = 42;
+
       oscRef.current.frequency.exponentialRampToValueAtTime(
         Math.max(30, basePitch),
         ctx.currentTime + 0.1
       );
+      osc2Ref.current.frequency.exponentialRampToValueAtTime(
+        Math.max(60, basePitch * 1.5),
+        ctx.currentTime + 0.1
+      );
     }
-  }, [entanglement, blackHoleActive, audioEnabled]);
+  }, [entanglement, blackHoleActive, erBridgeActive, audioEnabled]);
 
   const triggerPerturbation = () => {
     setPerturbation({ active: true, startTime: clockRef.current });
@@ -93,78 +117,122 @@ export default function App() {
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '14px',
           overflowY: 'auto',
           zIndex: 10
         }}
       >
         <div>
-          <h1 style={{ fontSize: '20px', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>
+          <h1 style={{ fontSize: '20px', margin: '0 0 4px 0', letterSpacing: '-0.3px' }}>
             AdS/CFT Tensor Network
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.5 }}>
-            Emergent Spacetime, Geodesic Lensing & Curvature Dynamics
+          <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
+            ER = EPR Wormhole Bridge & Geodesic Dynamics Simulator
           </p>
         </div>
 
-        {/* Quantum State Presets */}
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
-            QUANTUM STATE TOPOLOGY
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
-            {[
-              { id: 'standard', name: 'Boundary Vacuum' },
-              { id: 'bell', name: 'Bell Pair Cluster' },
-              { id: 'ghz', name: 'GHZ Maximal Coherence' },
-              { id: 'thermal', name: 'Thermal Mixed State' }
-            ].map((st) => (
-              <button
-                key={st.id}
-                onClick={() => setStateMode(st.id)}
-                disabled={blackHoleActive}
-                style={{
-                  padding: '8px 10px',
-                  fontSize: '12px',
-                  fontWeight: stateMode === st.id ? '600' : '400',
-                  borderRadius: '6px',
-                  border: stateMode === st.id ? '1px solid #38bdf8' : '1px solid #374151',
-                  backgroundColor: stateMode === st.id ? 'rgba(56, 189, 248, 0.15)' : '#111827',
-                  color: stateMode === st.id ? '#38bdf8' : '#d1d5db',
-                  cursor: blackHoleActive ? 'not-allowed' : 'pointer',
-                  opacity: blackHoleActive ? 0.4 : 1,
-                  textAlign: 'left'
-                }}
-              >
-                {st.name}
-              </button>
-            ))}
-          </div>
+        {/* Feature Toggles: ER = EPR, Black Hole, Audio */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <button
+            onClick={() => {
+              setErBridgeActive(!erBridgeActive);
+              if (!erBridgeActive) setBlackHoleActive(false);
+            }}
+            style={{
+              padding: '10px',
+              backgroundColor: erBridgeActive ? '#0891b2' : '#0e3a47',
+              color: '#f8fafc',
+              border: erBridgeActive ? '1px solid #22d3ee' : '1px solid #155e75',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}
+          >
+            {erBridgeActive ? 'ER = EPR: Active' : 'Form ER Bridge'}
+          </button>
+
+          <button
+            onClick={() => {
+              setBlackHoleActive(!blackHoleActive);
+              if (!blackHoleActive) setErBridgeActive(false);
+            }}
+            style={{
+              padding: '10px',
+              backgroundColor: blackHoleActive ? '#7e22ce' : '#1e1b4b',
+              color: '#f8fafc',
+              border: blackHoleActive ? '1px solid #c084fc' : '1px solid #4338ca',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}
+          >
+            {blackHoleActive ? 'Collapse: Active' : 'Form Event Horizon'}
+          </button>
         </div>
 
         {/* Entanglement Entropy Slider */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af' }}>ENTANGLEMENT ENTROPY (S)</span>
-            <span style={{ fontSize: '13px', color: '#38bdf8', fontFamily: 'monospace' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: erBridgeActive ? '#22d3ee' : '#9ca3af' }}>
+              {erBridgeActive ? 'EPR ENTANGLEMENT FLUX (S)' : 'ENTANGLEMENT ENTROPY (S)'}
+            </span>
+            <span style={{ fontSize: '13px', color: erBridgeActive ? '#22d3ee' : '#38bdf8', fontFamily: 'monospace' }}>
               {entanglement.toFixed(2)}
             </span>
           </div>
           <input
             type="range"
-            min="0"
+            min="0.05"
             max="1"
             step="0.01"
             value={entanglement}
-            disabled={blackHoleActive}
             onChange={(e) => setEntanglement(parseFloat(e.target.value))}
-            style={{ width: '100%', cursor: blackHoleActive ? 'not-allowed' : 'pointer', accentColor: '#38bdf8' }}
+            style={{ width: '100%', cursor: 'pointer', accentColor: erBridgeActive ? '#22d3ee' : '#38bdf8' }}
           />
         </div>
 
+        {/* Quantum State Presets (Available when not in ER mode) */}
+        {!erBridgeActive && (
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
+              QUANTUM STATE TOPOLOGY
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+              {[
+                { id: 'standard', name: 'Boundary Vacuum' },
+                { id: 'bell', name: 'Bell Pair Cluster' },
+                { id: 'ghz', name: 'GHZ Maximal Coherence' },
+                { id: 'thermal', name: 'Thermal Mixed State' }
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  onClick={() => setStateMode(st.id)}
+                  disabled={blackHoleActive}
+                  style={{
+                    padding: '7px 8px',
+                    fontSize: '11px',
+                    fontWeight: stateMode === st.id ? '600' : '400',
+                    borderRadius: '6px',
+                    border: stateMode === st.id ? '1px solid #38bdf8' : '1px solid #374151',
+                    backgroundColor: stateMode === st.id ? 'rgba(56, 189, 248, 0.15)' : '#111827',
+                    color: stateMode === st.id ? '#38bdf8' : '#d1d5db',
+                    cursor: blackHoleActive ? 'not-allowed' : 'pointer',
+                    opacity: blackHoleActive ? 0.4 : 1,
+                    textAlign: 'left'
+                  }}
+                >
+                  {st.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Geodesic Ray Controls */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#facc15' }}>NULL GEODESIC RAYS (LIGHT)</span>
             <button
               onClick={() => setGeodesicsActive(!geodesicsActive)}
@@ -201,28 +269,12 @@ export default function App() {
           )}
         </div>
 
-        {/* Feature Toggles */}
+        {/* Utility Controls */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <button
-            onClick={() => setBlackHoleActive(!blackHoleActive)}
-            style={{
-              padding: '10px',
-              backgroundColor: blackHoleActive ? '#7e22ce' : '#1e1b4b',
-              color: '#f8fafc',
-              border: blackHoleActive ? '1px solid #c084fc' : '1px solid #4338ca',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '600'
-            }}
-          >
-            {blackHoleActive ? 'Collapse: Active' : 'Form Event Horizon'}
-          </button>
-
           <button
             onClick={() => setAudioEnabled(!audioEnabled)}
             style={{
-              padding: '10px',
+              padding: '9px',
               backgroundColor: audioEnabled ? '#065f46' : '#111827',
               color: '#f8fafc',
               border: audioEnabled ? '1px solid #34d399' : '1px solid #374151',
@@ -232,54 +284,62 @@ export default function App() {
               fontWeight: '600'
             }}
           >
-            {audioEnabled ? 'Audio: Active' : 'Sonify Curvature'}
+            {audioEnabled ? 'Audio: Active' : 'Sonify Metric'}
+          </button>
+
+          <button
+            onClick={triggerPerturbation}
+            style={{
+              padding: '9px',
+              backgroundColor: '#1e293b',
+              color: '#f8fafc',
+              border: '1px solid #475569',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}
+          >
+            Graviton Pulse
           </button>
         </div>
-
-        {/* Graviton Pulse */}
-        <button
-          onClick={triggerPerturbation}
-          style={{
-            padding: '10px',
-            backgroundColor: '#1e293b',
-            color: '#f8fafc',
-            border: '1px solid #475569',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: '600'
-          }}
-        >
-          Emit Graviton Pulse (Perturbation)
-        </button>
 
         {/* Telemetry Readouts */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
-            METRIC & GEODESIC TELEMETRY
+            {erBridgeActive ? 'ER = EPR WORMHOLE TELEMETRY' : 'METRIC & GEODESIC TELEMETRY'}
           </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
-            <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>RICCI SCALAR (R)</div>
-              <div style={{ fontSize: '15px', color: blackHoleActive ? '#c084fc' : '#f43f5e', fontFamily: 'monospace', marginTop: '3px' }}>
-                {telemetry.ricciScalar}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>
+                {erBridgeActive ? 'THROAT RADIUS (r_0)' : 'RICCI SCALAR (R)'}
+              </div>
+              <div
+                style={{
+                  fontSize: '15px',
+                  color: erBridgeActive ? '#22d3ee' : blackHoleActive ? '#c084fc' : '#f43f5e',
+                  fontFamily: 'monospace',
+                  marginTop: '2px'
+                }}
+              >
+                {erBridgeActive ? telemetry.throatRadius : telemetry.ricciScalar}
               </div>
             </div>
-            <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>DEFLECTION (Δθ)</div>
-              <div style={{ fontSize: '15px', color: '#facc15', fontFamily: 'monospace', marginTop: '3px' }}>
+              <div style={{ fontSize: '15px', color: '#facc15', fontFamily: 'monospace', marginTop: '2px' }}>
                 {telemetry.deflectionAngle}
               </div>
             </div>
-            <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>METRIC g_00</div>
-              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '3px' }}>
+              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '2px' }}>
                 {telemetry.g00}
               </div>
             </div>
-            <div style={{ backgroundColor: '#111827', padding: '10px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>SPATIAL g_rr</div>
-              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '3px' }}>
+              <div style={{ fontSize: '15px', color: '#e2e8f0', fontFamily: 'monospace', marginTop: '2px' }}>
                 {telemetry.grr}
               </div>
             </div>
@@ -287,10 +347,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3D Canvas */}
+      {/* 3D Canvas Viewport */}
       <div style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
         <Canvas
-          camera={{ position: [0, 4, 11], fov: 45 }}
+          camera={{ position: [0, 4, 13], fov: 45 }}
           onPointerDown={() => triggerPerturbation()}
         >
           <color attach="background" args={['#030712']} />
@@ -301,6 +361,7 @@ export default function App() {
             stateMode={stateMode}
             perturbation={perturbation}
             blackHoleActive={blackHoleActive}
+            erBridgeActive={erBridgeActive}
             geodesicsActive={geodesicsActive}
             impactParamY={impactParamY}
             triggerPerturbation={triggerPerturbation}
