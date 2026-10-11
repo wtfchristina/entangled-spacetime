@@ -17,6 +17,8 @@ export default function SpacetimeGrid({
   erBridgeActive,
   geodesicsActive,
   impactParamY,
+  rayCount = 11,
+  beamMode = 'curtain',
   syndromeErrors,
   rtActive,
   boundaryAngle,
@@ -90,17 +92,15 @@ export default function SpacetimeGrid({
   const dynamicLineColors = useMemo(() => new Float32Array(lineColorsTemplate), [lineColorsTemplate]);
   const dynamicNodeColors = useMemo(() => new Float32Array(nodeColorsTemplate), [nodeColorsTemplate]);
 
-  // Procedural swirling texture for the accretion disk with visible radial streams
+  // Procedural swirling plasma texture for the accretion disk
   const accretionTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
-
     const cx = 256;
     const cy = 256;
 
-    // Draw radial plasma streaks to break circular symmetry
     for (let i = 0; i < 72; i++) {
       const angle = (i / 72) * Math.PI * 2;
       const len = 90 + Math.random() * 140;
@@ -112,7 +112,6 @@ export default function SpacetimeGrid({
       ctx.stroke();
     }
 
-    // Radial gradient fade
     const grad = ctx.createRadialGradient(cx, cy, 75, cx, cy, 250);
     grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
     grad.addColorStop(0.35, 'rgba(251, 146, 60, 0.85)');
@@ -138,7 +137,6 @@ export default function SpacetimeGrid({
     for (let i = 0; i < count; i++) {
       const radius = 1.7 + Math.random() * 2.1;
       const angle = Math.random() * Math.PI * 2;
-      // Differential Keplerian angular velocity (inner particles orbit faster)
       const speed = (2.8 / Math.pow(radius, 1.25)) * (0.95 + Math.random() * 0.1);
       const zOffset = (Math.random() - 0.5) * 0.12;
 
@@ -148,10 +146,11 @@ export default function SpacetimeGrid({
     return { initialData, positions, colors, count };
   }, []);
 
+  // Compute curved null geodesic paths for the ray bundle
   const geodesicPaths = useMemo(() => {
     if (!geodesicsActive) return [];
-    return traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive);
-  }, [geodesicsActive, impactParamY, entanglement, blackHoleActive, erBridgeActive]);
+    return traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive, rayCount, beamMode);
+  }, [geodesicsActive, impactParamY, entanglement, blackHoleActive, erBridgeActive, rayCount, beamMode]);
 
   const rtSurface = useMemo(() => {
     if (!rtActive) return null;
@@ -225,7 +224,7 @@ export default function SpacetimeGrid({
       horizonRef.current.scale.set(pulse, pulse, pulse);
     }
 
-    // ACCRETION DISK SPIN & RELATIVISTIC KEPLERIAN PARTICLES
+    // Accretion Disk Spin & Relativistic Keplerian Particle Cloud
     if (blackHoleActive && !erBridgeActive) {
       if (accretionRingRef.current) {
         accretionRingRef.current.rotation.z += delta * 1.8;
@@ -248,7 +247,6 @@ export default function SpacetimeGrid({
           posArr[i * 3 + 1] = ly;
           posArr[i * 3 + 2] = lz;
 
-          // Relativistic Doppler Beaming: Approaching matter is bright gold; receding is deep red
           const doppler = Math.sin(p.angle);
           if (doppler > 0) {
             colArr[i * 3] = 1.0;
@@ -298,7 +296,7 @@ export default function SpacetimeGrid({
       }
     }
 
-    // Geodesic Photons
+    // Multi-Ray Photon Wavepackets Animation
     if (geodesicsActive && geodesicPaths.length > 0) {
       const speed = 0.8;
       const progress = (time * speed) % 1;
@@ -476,9 +474,7 @@ export default function SpacetimeGrid({
             />
           </mesh>
 
-          {/* Tilted Accretion Disk Plane */}
           <group rotation={[Math.PI / 3.4, 0.25, 0]}>
-            {/* Spinning Plasma Disk Mesh */}
             <mesh ref={accretionRingRef}>
               <ringGeometry args={[1.7, 3.8, 64]} />
               <meshBasicMaterial
@@ -489,7 +485,6 @@ export default function SpacetimeGrid({
               />
             </mesh>
 
-            {/* Keplerian Differential Particle Stream */}
             <points ref={accretionParticlesRef}>
               <bufferGeometry>
                 <bufferAttribute
@@ -517,7 +512,7 @@ export default function SpacetimeGrid({
         </group>
       )}
 
-      {/* Null Geodesic Paths & Traveling Photons */}
+      {/* Multi-Ray Geodesic Bundle & Traveling Photons */}
       {geodesicsActive &&
         geodesicPaths.map((pathPoints, idx) => (
           <group key={idx}>
@@ -530,10 +525,10 @@ export default function SpacetimeGrid({
                   itemSize={3}
                 />
               </bufferGeometry>
-              <lineBasicMaterial color="#eab308" transparent opacity={0.4} />
+              <lineBasicMaterial color="#eab308" transparent opacity={0.45} />
             </line>
             <mesh ref={(el) => (photonMarkersRef.current[idx] = el)}>
-              <sphereGeometry args={[0.09, 16, 16]} />
+              <sphereGeometry args={[0.07, 12, 12]} />
               <meshBasicMaterial color="#fef08a" />
             </mesh>
           </group>

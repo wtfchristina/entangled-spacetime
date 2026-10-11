@@ -1,5 +1,6 @@
 /**
  * tensorCalculations.js
+ * Multi-Ray Geodesic Bundle Engine (Planar Curtain & Cylindrical Tube),
  * Holographic Spacetime, Traversable Wormhole Protocol, and QEC Engine
  */
 
@@ -77,7 +78,6 @@ export function calculateNodeState(
     const pullTowardsThroat = entanglement * 1.2 * Math.exp(-Math.abs(baseX));
     finalX -= sideSign * pullTowardsThroat;
 
-    // Shockwave pulse dilation during teleportation
     if (teleportPacket && teleportPacket.active) {
       const shockEffect = Math.sin(time * 12) * 0.18 * Math.exp(-Math.abs(baseX));
       finalY += shockEffect;
@@ -193,16 +193,49 @@ export function generateWormholeGeometry(entanglement, time) {
   };
 }
 
-export function traceGeodesicRays(impactParamY, entanglement, blackHoleActive, erBridgeActive) {
+/**
+ * Traces a configurable bundle of null geodesics through curved spacetime
+ * Supports Planar Curtain (vertical fan) and Cylindrical Tube (Einstein ring generator)
+ */
+export function traceGeodesicRays(
+  impactParamY,
+  entanglement,
+  blackHoleActive,
+  erBridgeActive,
+  rayCount = 11,
+  beamMode = 'curtain'
+) {
   const steps = 60;
   const stepSize = 0.22;
-  const rays = [-1.2, 0.0, 1.2];
+  const rayOffsets = [];
 
-  return rays.map((zOffset) => {
+  if (beamMode === 'tube') {
+    // Cylindrical bundle forming a ring around the optical axis
+    const tubeRadius = Math.max(0.6, impactParamY);
+    for (let i = 0; i < rayCount; i++) {
+      const angle = (i / rayCount) * Math.PI * 2;
+      rayOffsets.push({
+        y: Math.sin(angle) * tubeRadius,
+        z: Math.cos(angle) * tubeRadius
+      });
+    }
+  } else {
+    // Planar curtain: vertical fan demonstrating differential 1/b deflection
+    const spreadSpan = 2.4;
+    for (let i = 0; i < rayCount; i++) {
+      const factor = rayCount > 1 ? (i / (rayCount - 1)) * 2 - 1 : 0; // -1 to +1
+      rayOffsets.push({
+        y: impactParamY + factor * (spreadSpan / 2),
+        z: factor * 0.35 // Subtle diagonal depth for stereoscopic clarity
+      });
+    }
+  }
+
+  return rayOffsets.map(({ y: startY, z: startZ }) => {
     const points = [];
     let px = -7.0;
-    let py = impactParamY;
-    let pz = zOffset;
+    let py = startY;
+    let pz = startZ;
 
     let vx = 1.0;
     let vy = 0.0;
@@ -250,16 +283,10 @@ export function traceGeodesicRays(impactParamY, entanglement, blackHoleActive, e
   });
 }
 
-/**
- * Gao-Jafferis-Wall traversable teleportation trajectory:
- * Smoothly travels from Left Mouth A (-4.8) -> Throat (0.0) -> Right Mouth B (+4.8)
- */
 export function computeTeleportationPosition(progress, entanglement) {
-  // Clamped progress between 0 (Mouth A) and 1 (Mouth B)
   const p = Math.min(1.0, Math.max(0.0, progress));
   const x = -4.8 + p * 9.6;
 
-  // Throat compression
   const throatFactor = Math.exp(-Math.pow(x / 1.8, 2));
   const y = Math.sin(p * Math.PI) * 0.5 * (1 - throatFactor);
   const z = Math.cos(p * Math.PI * 4) * 0.25 * throatFactor;

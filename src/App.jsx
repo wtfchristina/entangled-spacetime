@@ -13,19 +13,23 @@ export default function App() {
   const [blackHoleActive, setBlackHoleActive] = useState(false);
   const [erBridgeActive, setErBridgeActive] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [geodesicsActive, setGeodesicsActive] = useState(false);
-  const [impactParamY, setImpactParamY] = useState(1.6);
   const [syndromeErrors, setSyndromeErrors] = useState([]);
   const [cinematicBloom, setCinematicBloom] = useState(true);
   
-  // Ryu-Takayanagi & HKLL Subregion States
+  // Geodesic Ray Bundle States
+  const [geodesicsActive, setGeodesicsActive] = useState(true);
+  const [impactParamY, setImpactParamY] = useState(1.6);
+  const [rayCount, setRayCount] = useState(11);
+  const [beamMode, setBeamMode] = useState('curtain'); // 'curtain' or 'tube'
+
+  // Ryu-Takayanagi States
   const [rtActive, setRtActive] = useState(true);
   const [boundaryAngle, setBoundaryAngle] = useState(2.1);
 
-  // Gao-Jafferis-Wall Traversable Teleportation State
+  // Gao-Jafferis-Wall Teleportation State
   const [teleportPacket, setTeleportPacket] = useState({ active: false, startTime: 0, phase: 'idle' });
 
-  // Camera Director Mode
+  // Camera Mode
   const [cameraMode, setCameraMode] = useState('lab');
 
   const clockRef = useRef(0);
@@ -48,7 +52,6 @@ export default function App() {
     teleportPacket
   );
 
-  // Initialize Web Audio synthesizer with AnalyserNode for the Oscilloscope
   useEffect(() => {
     if (!audioEnabled) {
       if (audioCtxRef.current) audioCtxRef.current.suspend();
@@ -89,7 +92,6 @@ export default function App() {
     }
   }, [audioEnabled]);
 
-  // Audio modulation
   useEffect(() => {
     if (audioCtxRef.current && oscRef.current && osc2Ref.current && audioEnabled) {
       const ctx = audioCtxRef.current;
@@ -110,7 +112,6 @@ export default function App() {
     }
   }, [entanglement, blackHoleActive, erBridgeActive, syndromeErrors, audioEnabled]);
 
-  // Draw Live Audio Oscilloscope Canvas
   useEffect(() => {
     let animId;
     const canvas = oscilloscopeCanvasRef.current;
@@ -148,7 +149,6 @@ export default function App() {
         ctx.lineTo(canvas.width, canvas.height / 2);
         ctx.stroke();
       } else {
-        // Flat baseline when audio is disabled
         ctx.lineWidth = 1.0;
         ctx.strokeStyle = '#374151';
         ctx.beginPath();
@@ -231,10 +231,14 @@ export default function App() {
         topologyMode: stateMode,
         boundaryAngleSubregion: boundaryAngle,
         cameraPerspective: cameraMode,
+        geodesicRayBundle: {
+          active: geodesicsActive,
+          rayCount,
+          beamMode,
+          impactParameter: impactParamY
+        },
         blackHoleActive,
-        erBridgeActive,
-        geodesicsActive,
-        impactParameter: impactParamY
+        erBridgeActive
       },
       teleportationProtocol: {
         status: teleportPacket.phase,
@@ -306,7 +310,7 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
-            Quantum Gravity & Relativistic Visualizer
+            Relativistic Ray Bundles & Quantum Gravity Simulator
           </p>
         </div>
 
@@ -342,6 +346,102 @@ export default function App() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Feature: Multi-Ray Geodesic Bundle & Lensing Controls */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#facc15' }}>
+              NULL GEODESIC BEAM BUNDLE
+            </span>
+            <button
+              onClick={() => setGeodesicsActive(!geodesicsActive)}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                backgroundColor: geodesicsActive ? '#ca8a04' : '#1f2937',
+                color: '#fff',
+                border: '1px solid #facc15',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {geodesicsActive ? 'Beams ON' : 'Beams OFF'}
+            </button>
+          </div>
+
+          {geodesicsActive && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Beam Topology Toggle */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <button
+                  onClick={() => setBeamMode('curtain')}
+                  style={{
+                    padding: '6px',
+                    fontSize: '11px',
+                    fontWeight: beamMode === 'curtain' ? '600' : '400',
+                    borderRadius: '4px',
+                    border: beamMode === 'curtain' ? '1px solid #facc15' : '1px solid #374151',
+                    backgroundColor: beamMode === 'curtain' ? 'rgba(250, 204, 21, 0.15)' : '#0f172a',
+                    color: beamMode === 'curtain' ? '#facc15' : '#9ca3af',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Planar Curtain Fan
+                </button>
+                <button
+                  onClick={() => setBeamMode('tube')}
+                  style={{
+                    padding: '6px',
+                    fontSize: '11px',
+                    fontWeight: beamMode === 'tube' ? '600' : '400',
+                    borderRadius: '4px',
+                    border: beamMode === 'tube' ? '1px solid #facc15' : '1px solid #374151',
+                    backgroundColor: beamMode === 'tube' ? 'rgba(250, 204, 21, 0.15)' : '#0f172a',
+                    color: beamMode === 'tube' ? '#facc15' : '#9ca3af',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Einstein Tube Ring
+                </button>
+              </div>
+
+              {/* Ray Count Slider */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
+                  <span>Ray Bundle Density</span>
+                  <span style={{ fontFamily: 'monospace', color: '#facc15' }}>{rayCount} Rays</span>
+                </div>
+                <input
+                  type="range"
+                  min="3"
+                  max="21"
+                  step="2"
+                  value={rayCount}
+                  onChange={(e) => setRayCount(parseInt(e.target.value, 10))}
+                  style={{ width: '100%', cursor: 'pointer', accentColor: '#facc15' }}
+                />
+              </div>
+
+              {/* Impact Parameter Slider */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
+                  <span>Impact Parameter (b)</span>
+                  <span style={{ fontFamily: 'monospace', color: '#facc15' }}>{impactParamY.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.3"
+                  max="3.2"
+                  step="0.05"
+                  value={impactParamY}
+                  onChange={(e) => setImpactParamY(parseFloat(e.target.value))}
+                  style={{ width: '100%', cursor: 'pointer', accentColor: '#facc15' }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Feature Toggles: ER = EPR & Black Hole */}
@@ -553,41 +653,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Optical & Geodesic Controls */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <button
-            onClick={() => setGeodesicsActive(!geodesicsActive)}
-            style={{
-              padding: '8px',
-              backgroundColor: geodesicsActive ? '#ca8a04' : '#1f2937',
-              color: '#fff',
-              border: geodesicsActive ? '1px solid #facc15' : '1px solid #374151',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: '600'
-            }}
-          >
-            {geodesicsActive ? 'Light Rays: ON' : 'Light Rays: OFF'}
-          </button>
-
-          <button
-            onClick={() => setCinematicBloom(!cinematicBloom)}
-            style={{
-              padding: '8px',
-              backgroundColor: cinematicBloom ? '#db2777' : '#1f2937',
-              color: '#fff',
-              border: cinematicBloom ? '1px solid #f472b6' : '1px solid #374151',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: '600'
-            }}
-          >
-            {cinematicBloom ? 'Shaders: ON' : 'Shaders: OFF'}
-          </button>
-        </div>
-
         {/* Audio and Pulse */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
@@ -722,6 +787,8 @@ export default function App() {
             erBridgeActive={erBridgeActive}
             geodesicsActive={geodesicsActive}
             impactParamY={impactParamY}
+            rayCount={rayCount}
+            beamMode={beamMode}
             syndromeErrors={syndromeErrors}
             rtActive={rtActive}
             boundaryAngle={boundaryAngle}
