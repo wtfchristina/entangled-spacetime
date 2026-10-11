@@ -4,7 +4,13 @@ import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import SpacetimeGrid from './components/SpacetimeGrid';
-import { computeMetricTelemetry } from './logic/tensorCalculations';
+import {
+  computeMetricTelemetry,
+  RS_SCHWARZSCHILD,
+  R_PHOTON_SPHERE,
+  R_ISCO,
+  B_CRIT
+} from './logic/tensorCalculations';
 
 export default function App() {
   const [entanglement, setEntanglement] = useState(0.5);
@@ -20,7 +26,7 @@ export default function App() {
   const [geodesicsActive, setGeodesicsActive] = useState(true);
   const [impactParamY, setImpactParamY] = useState(1.6);
   const [rayCount, setRayCount] = useState(11);
-  const [beamMode, setBeamMode] = useState('curtain'); // 'curtain' or 'tube'
+  const [beamMode, setBeamMode] = useState('curtain');
 
   // Ryu-Takayanagi States
   const [rtActive, setRtActive] = useState(true);
@@ -99,19 +105,20 @@ export default function App() {
       let basePitch = 55 + entanglement * 95;
       if (erBridgeActive) basePitch = 110 + entanglement * 75;
       if (blackHoleActive && !erBridgeActive) basePitch = 42;
+      if (telemetry.isDissociated) basePitch = 24; // Low discordant drone for torn spacetime
 
       const detuneFactor = syndromeErrors.length * 8;
 
       oscRef.current.frequency.exponentialRampToValueAtTime(
-        Math.max(30, basePitch + detuneFactor),
+        Math.max(20, basePitch + detuneFactor),
         ctx.currentTime + 0.1
       );
       osc2Ref.current.frequency.exponentialRampToValueAtTime(
-        Math.max(60, (basePitch + detuneFactor) * 1.5),
+        Math.max(40, (basePitch + detuneFactor) * 1.5),
         ctx.currentTime + 0.1
       );
     }
-  }, [entanglement, blackHoleActive, erBridgeActive, syndromeErrors, audioEnabled]);
+  }, [entanglement, blackHoleActive, erBridgeActive, syndromeErrors, audioEnabled, telemetry.isDissociated]);
 
   useEffect(() => {
     let animId;
@@ -131,7 +138,7 @@ export default function App() {
         analyserRef.current.getByteTimeDomainData(dataArray);
 
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = '#34d399';
+        ctx.strokeStyle = telemetry.isDissociated ? '#ef4444' : '#34d399';
         ctx.beginPath();
 
         const sliceWidth = canvas.width / bufferLength;
@@ -161,7 +168,7 @@ export default function App() {
 
     renderOscilloscope();
     return () => cancelAnimationFrame(animId);
-  }, [audioEnabled]);
+  }, [audioEnabled, telemetry.isDissociated]);
 
   const triggerPerturbation = () => {
     setPerturbation({ active: true, startTime: clockRef.current });
@@ -212,7 +219,6 @@ export default function App() {
     setSyndromeErrors([]);
   };
 
-  // Fixed: Accurately targets the 3D WebGL Canvas rather than the 2D audio oscilloscope
   const captureSnapshot = () => {
     const canvasElement = webglCanvasRef.current || document.querySelector('#webgl-viewport canvas');
     if (!canvasElement) return;
@@ -241,6 +247,16 @@ export default function App() {
         },
         blackHoleActive,
         erBridgeActive
+      },
+      astrophysicalConstants: {
+        r_Schwarzschild: `${RS_SCHWARZSCHILD} L_P`,
+        r_PhotonSphere: `${R_PHOTON_SPHERE} L_P`,
+        r_ISCO: `${R_ISCO} L_P`,
+        criticalImpactParameter: `${B_CRIT.toFixed(3)} L_P`
+      },
+      vanRaamsdonkDissociation: {
+        active: telemetry.isDissociated,
+        status: telemetry.isDissociated ? 'Spacetime Metric Disconnected' : 'Coherent Geometry Intact'
       },
       teleportationProtocol: {
         status: teleportPacket.phase,
@@ -312,9 +328,26 @@ export default function App() {
             AdS/CFT Tensor Network
           </h1>
           <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af', lineHeight: 1.4 }}>
-            Relativistic Ray Bundles & Quantum Gravity Simulator
+            Relativistic Boundaries & Holographic Emergence Laboratory
           </p>
         </div>
+
+        {/* Van Raamsdonk Dissociation Alert Banner */}
+        {telemetry.isDissociated && (
+          <div
+            style={{
+              padding: '10px',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid #ef4444',
+              borderRadius: '8px',
+              fontSize: '11px',
+              color: '#fca5a5',
+              lineHeight: 1.4
+            }}
+          >
+            <strong>⚡ VAN RAAMSDONK SPATIAL DISSOCIATION:</strong> Entanglement $S \to 0$. Metric proper distance diverges ($d \to \infty$); spacetime tensor bonds have severed into disconnected fragments.
+          </div>
+        )}
 
         {/* Cinematic Camera Director */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
@@ -349,6 +382,98 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        {/* Entanglement Entropy Slider (Demonstrating Van Raamsdonk S -> 0) */}
+        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: telemetry.isDissociated ? '#ef4444' : (erBridgeActive ? '#22d3ee' : '#9ca3af') }}>
+              {telemetry.isDissociated ? 'ENTROPY CRITICAL (TEARING)' : (erBridgeActive ? 'EPR ENTANGLEMENT FLUX (S)' : 'ENTANGLEMENT ENTROPY (S)')}
+            </span>
+            <span style={{ fontSize: '13px', color: telemetry.isDissociated ? '#ef4444' : '#38bdf8', fontFamily: 'monospace' }}>
+              {entanglement.toFixed(2)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min="0.00"
+            max="1.00"
+            step="0.01"
+            value={entanglement}
+            onChange={(e) => setEntanglement(parseFloat(e.target.value))}
+            style={{
+              width: '100%',
+              cursor: 'pointer',
+              accentColor: telemetry.isDissociated ? '#ef4444' : (erBridgeActive ? '#22d3ee' : '#38bdf8')
+            }}
+          />
+          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>
+            Tip: Slide below 0.15 to trigger Van Raamsdonk metric dissociation.
+          </div>
+        </div>
+
+        {/* Feature Toggles: ER = EPR & Exact GR Black Hole */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <button
+            onClick={() => {
+              setErBridgeActive(!erBridgeActive);
+              if (!erBridgeActive) setBlackHoleActive(false);
+            }}
+            style={{
+              padding: '9px',
+              backgroundColor: erBridgeActive ? '#0891b2' : '#0e3a47',
+              color: '#f8fafc',
+              border: erBridgeActive ? '1px solid #22d3ee' : '1px solid #155e75',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: '600'
+            }}
+          >
+            {erBridgeActive ? 'ER = EPR: Active' : 'Form ER Bridge'}
+          </button>
+
+          <button
+            onClick={() => {
+              setBlackHoleActive(!blackHoleActive);
+              if (!blackHoleActive) setErBridgeActive(false);
+            }}
+            style={{
+              padding: '9px',
+              backgroundColor: blackHoleActive ? '#7e22ce' : '#1e1b4b',
+              color: '#f8fafc',
+              border: blackHoleActive ? '1px solid #c084fc' : '1px solid #4338ca',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: '600'
+            }}
+          >
+            {blackHoleActive ? 'GR Black Hole: Active' : 'Form Schwarzschild BH'}
+          </button>
+        </div>
+
+        {/* Exact GR Relativistic Horizon Legend (when Black Hole Active) */}
+        {blackHoleActive && !erBridgeActive && (
+          <div style={{ backgroundColor: '#111827', padding: '10px 12px', borderRadius: '8px', border: '1px solid #374151' }}>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#c084fc', marginBottom: '6px' }}>
+              EXACT SCHWARZSCHILD BOUNDARIES
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', fontSize: '10px' }}>
+              <div style={{ borderLeft: '2px solid #a855f7', paddingLeft: '4px' }}>
+                <span style={{ color: '#9ca3af' }}>Horizon (r_s):</span>
+                <div style={{ color: '#c084fc', fontFamily: 'monospace' }}>{RS_SCHWARZSCHILD.toFixed(2)}</div>
+              </div>
+              <div style={{ borderLeft: '2px solid #facc15', paddingLeft: '4px' }}>
+                <span style={{ color: '#9ca3af' }}>Photon (1.5r_s):</span>
+                <div style={{ color: '#facc15', fontFamily: 'monospace' }}>{R_PHOTON_SPHERE.toFixed(2)}</div>
+              </div>
+              <div style={{ borderLeft: '2px solid #06b6d4', paddingLeft: '4px' }}>
+                <span style={{ color: '#9ca3af' }}>ISCO (3.0r_s):</span>
+                <div style={{ color: '#22d3ee', fontFamily: 'monospace' }}>{R_ISCO.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Multi-Ray Geodesic Bundle & Lensing Controls */}
         <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
@@ -427,7 +552,9 @@ export default function App() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
                   <span>Impact Parameter (b)</span>
-                  <span style={{ fontFamily: 'monospace', color: '#facc15' }}>{impactParamY.toFixed(2)}</span>
+                  <span style={{ fontFamily: 'monospace', color: '#facc15' }}>
+                    {impactParamY.toFixed(2)} (b_crit: {B_CRIT.toFixed(2)})
+                  </span>
                 </div>
                 <input
                   type="range"
@@ -441,47 +568,6 @@ export default function App() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Feature Toggles: ER = EPR & Black Hole */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <button
-            onClick={() => {
-              setErBridgeActive(!erBridgeActive);
-              if (!erBridgeActive) setBlackHoleActive(false);
-            }}
-            style={{
-              padding: '9px',
-              backgroundColor: erBridgeActive ? '#0891b2' : '#0e3a47',
-              color: '#f8fafc',
-              border: erBridgeActive ? '1px solid #22d3ee' : '1px solid #155e75',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: '600'
-            }}
-          >
-            {erBridgeActive ? 'ER = EPR: Active' : 'Form ER Bridge'}
-          </button>
-
-          <button
-            onClick={() => {
-              setBlackHoleActive(!blackHoleActive);
-              if (!blackHoleActive) setErBridgeActive(false);
-            }}
-            style={{
-              padding: '9px',
-              backgroundColor: blackHoleActive ? '#7e22ce' : '#1e1b4b',
-              color: '#f8fafc',
-              border: blackHoleActive ? '1px solid #c084fc' : '1px solid #4338ca',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: '600'
-            }}
-          >
-            {blackHoleActive ? 'Collapse: Active' : 'Form Event Horizon'}
-          </button>
         </div>
 
         {/* Traversable Wormhole Teleportation Console */}
@@ -527,27 +613,6 @@ export default function App() {
               {teleportPacket.phase === 'idle' && 'Teleport Qubit Across Bridge (A → B)'}
             </span>
           </button>
-        </div>
-
-        {/* Entanglement Entropy Slider */}
-        <div style={{ backgroundColor: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #374151' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: erBridgeActive ? '#22d3ee' : '#9ca3af' }}>
-              {erBridgeActive ? 'EPR ENTANGLEMENT FLUX (S)' : 'ENTANGLEMENT ENTROPY (S)'}
-            </span>
-            <span style={{ fontSize: '13px', color: erBridgeActive ? '#22d3ee' : '#38bdf8', fontFamily: 'monospace' }}>
-              {entanglement.toFixed(2)}
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.05"
-            max="1"
-            step="0.01"
-            value={entanglement}
-            onChange={(e) => setEntanglement(parseFloat(e.target.value))}
-            style={{ width: '100%', cursor: 'pointer', accentColor: erBridgeActive ? '#22d3ee' : '#38bdf8' }}
-          />
         </div>
 
         {/* Ryu-Takayanagi Minimal Surface Controls */}
@@ -722,12 +787,24 @@ export default function App() {
           </button>
         </div>
 
-        {/* Holographic & Relativistic Telemetry Readouts */}
+        {/* Metric Telemetry Readouts */}
         <div>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px' }}>
-            HOLOGRAPHIC & HKLL BULK TELEMETRY
+            METRIC & HOLOGRAPHIC TELEMETRY
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>METRIC g_00 (TIME)</div>
+              <div style={{ fontSize: '14px', color: telemetry.isDissociated ? '#ef4444' : '#e2e8f0', fontFamily: 'monospace', marginTop: '2px' }}>
+                {telemetry.g00}
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>METRIC g_rr (SPACE)</div>
+              <div style={{ fontSize: '14px', color: telemetry.isDissociated ? '#ef4444' : '#e2e8f0', fontFamily: 'monospace', marginTop: '2px' }}>
+                {telemetry.grr}
+              </div>
+            </div>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>MINIMAL AREA Area(γ_A)</div>
               <div style={{ fontSize: '14px', color: '#10b981', fontFamily: 'monospace', marginTop: '2px' }}>
@@ -735,27 +812,8 @@ export default function App() {
               </div>
             </div>
             <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>HKLL BULK ERROR</div>
-              <div style={{ fontSize: '14px', color: '#38bdf8', fontFamily: 'monospace', marginTop: '2px' }}>
-                {telemetry.hkllError}
-              </div>
-            </div>
-            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>LOGICAL FIDELITY</div>
-              <div
-                style={{
-                  fontSize: '14px',
-                  color: telemetry.logicalFidelity > 0.8 ? '#34d399' : '#f59e0b',
-                  fontFamily: 'monospace',
-                  marginTop: '2px'
-                }}
-              >
-                {telemetry.logicalFidelity}
-              </div>
-            </div>
-            <div style={{ backgroundColor: '#111827', padding: '9px', borderRadius: '6px', border: '1px solid #1f2937' }}>
               <div style={{ fontSize: '10px', color: '#9ca3af' }}>RICCI SCALAR (R)</div>
-              <div style={{ fontSize: '14px', color: '#f43f5e', fontFamily: 'monospace', marginTop: '2px' }}>
+              <div style={{ fontSize: '14px', color: telemetry.isDissociated ? '#ef4444' : '#f43f5e', fontFamily: 'monospace', marginTop: '2px' }}>
                 {telemetry.ricciScalar}
               </div>
             </div>
@@ -763,7 +821,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3D Canvas Viewport Container with explicit ID and WebGL hook */}
+      {/* 3D Canvas Viewport */}
       <div id="webgl-viewport" style={{ flexGrow: 1, height: '100%', position: 'relative' }}>
         <Canvas
           onCreated={({ gl }) => {
